@@ -292,15 +292,89 @@ const BackendAPI = {
 function normalizeAnalysis(a) {
     if (!a) return null;
 
-    const period = a.period || a.periodName || a.period_name || 'unknown';
-    const periodLabel = period === 'morning' ? 'Morning (a)' : period === 'afternoon' ? 'Afternoon (b)' : 'Unknown Period';
+    const feats = a.features || a.parsed_features || {};
 
-    const statusCounts = {
-        alarm: a.alarm_count ?? a.statusCounts?.alarm ?? a.status_counts?.alarm ?? 0,
-        warning: a.warning_count ?? a.statusCounts?.warning ?? a.status_counts?.warning ?? 0,
-        normal: a.normal_count ?? a.statusCounts?.normal ?? a.status_counts?.normal ?? 0,
-        error: a.error_count ?? a.statusCounts?.error ?? a.status_counts?.error ?? 0
-    };
+    // Period/date: backend may provide, otherwise caller should inject from filename detection
+    const period = a.period || a.periodName || a.period_name || 'unknown';
+    const periodLabel =
+        a.periodLabel ||
+        a.period_label ||
+        (period === 'morning' ? 'Morning (a)' : period === 'afternoon' ? 'Afternoon (b)' : 'Unknown Period');
+
+    // Record count: backend day endpoints use recordCount; upload endpoint provides features.lines
+    let recordCount =
+        a.record_count ??
+        a.recordCount ??
+        a.recordsAnalyzed ??
+        feats.lines ??
+        feats.line_count ??
+        0;
+
+    // Status counts: upload endpoint provides alarm_hits/warning_hits in features
+    const alarm =
+        a.alarm_count ??
+        a.statusCounts?.alarm ??
+        a.status_counts?.alarm ??
+        feats.alarm_hits ??
+        feats.alarms ??
+        0;
+
+    const warning =
+        a.warning_count ??
+        a.statusCounts?.warning ??
+        a.status_counts?.warning ??
+        feats.warning_hits ??
+        feats.warnings ??
+        0;
+
+    const error =
+        a.error_count ??
+        a.statusCounts?.error ??
+        a.status_counts?.error ??
+        feats.error_hits ??
+        0;
+
+    // If recordCount is missing but we have counts, infer something sensible
+    if ((!recordCount || recordCount === 0) && (alarm || warning || error)) {
+        recordCount = alarm + warning + error;
+    }
+
+    const normal =
+        a.normal_count ??
+        a.statusCounts?.normal ??
+        a.status_counts?.normal ??
+        Math.max(0, recordCount - alarm - warning - error);
+
+    const statusCounts = { alarm, warning, normal, error };
+
+    // Confidence: convert 0..1 -> 0..100, always return as string with 1 decimal
+    let confRaw = a.confidence ?? a.ml?.confidence ?? 0;
+    let confNum = typeof confRaw === 'string' ? parseFloat(confRaw) : Number(confRaw);
+    if (Number.isNaN(confNum)) confNum = 0;
+    if (confNum <= 1) confNum *= 100;
+
+    // RUL: hours
+    const rulVal = a.rul_hours ?? a.rul ?? a.ml?.rul_hours ?? a.ml?.estimatedRUL ?? 0;
+
+    // Rates: compute if not present
+    const alarmRateRaw =
+        a.alarm_rate ?? a.metrics?.alarmRate ?? feats.alarm_rate ?? a.alarmRate ?? null;
+    const warningRateRaw =
+        a.warning_rate ?? a.metrics?.warningRate ?? feats.warning_rate ?? a.warningRate ?? null;
+
+    const alarmRate =
+        alarmRateRaw != null
+            ? alarmRateRaw
+            : recordCount
+                ? ((alarm / recordCount) * 100).toFixed(2)
+                : '0.00';
+
+    const warningRate =
+        warningRateRaw != null
+            ? warningRateRaw
+            : recordCount
+                ? ((warning / recordCount) * 100).toFixed(2)
+                : '0.00';
 
     return {
         id: a.id ?? a.upload_id ?? a.uploadId,
@@ -310,13 +384,13 @@ function normalizeAnalysis(a) {
         dateStr: a.date_str ?? a.dateStr,
         period,
         periodLabel,
-        recordCount: a.record_count ?? a.recordCount ?? 0,
-        prediction: a.prediction ?? a.ml?.prediction,
-        confidence: a.confidence ?? a.ml?.confidence,
-        rul: a.rul_hours ?? a.rul ?? a.ml?.rul_hours ?? a.ml?.estimatedRUL,
-        severity: a.severity ?? a.ml?.severity,
-        alarmRate: a.alarm_rate ?? a.metrics?.alarmRate ?? a.features?.alarm_rate ?? a.alarmRate,
-        warningRate: a.warning_rate ?? a.metrics?.warningRate ?? a.features?.warning_rate ?? a.warningRate,
+        recordCount,
+        prediction: a.prediction ?? a.ml?.prediction ?? 'NORMAL',
+        confidence: confNum.toFixed(1),
+        rul: typeof rulVal === 'number' ? Math.round(rulVal) : Math.round(parseFloat(rulVal) || 0),
+        severity: a.severity ?? a.ml?.severity ?? 'none',
+        alarmRate,
+        warningRate,
         metrics: a.metrics ?? a.ml?.metrics,
         issues: a.issues ?? a.ml?.issues ?? [],
         statusCounts,
@@ -859,6 +933,12 @@ async function startAnalysis() {
 
             // Ensure label from filename detection if backend period is unknown
             analysis.periodLabel = fileInfo?.periodLabel || analysis.periodLabel;
+
+            // Ensure period/date from filename detection (upload endpoint does not return these)
+            analysis.period = fileInfo?.period || analysis.period;
+            analysis.dateStr = fileInfo?.dateStr || analysis.dateStr;
+            analysis.periodLabel = fileInfo?.periodLabel || analysis.periodLabel;
+
 
             allResults.push(analysis);
         }
