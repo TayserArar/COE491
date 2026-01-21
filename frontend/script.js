@@ -26,6 +26,8 @@ const AppState = {
     // Date navigation
     selectedDate: new Date(),
     minHistoryDate: null,
+    availableDates: [],
+    history: [],
     
     // Current analysis data
     currentFiles: [], // Array of selected files
@@ -176,25 +178,68 @@ const DataStore = {
 };
 
 // ============================================
-// FAKE BACKEND API SERVICE
+// BACKEND API SERVICE (LOCAL DOCKER)
+//
+// This dashboard was originally written as a full frontend simulation.
+// For Senior 2, we connect it to the real FastAPI backend running in Docker.
+//
+// IMPORTANT:
+// - When running via docker compose, the API should be reachable at http://localhost:8000
+// - If you change ports, update API_BASE_URL below.
 // ============================================
+const API_BASE_URL = (window.DANS_API_BASE_URL || 'http://localhost:8000') + '/v1';
+
 const BackendAPI = {
-    baseUrl: 'https://api.dans-ils.ae/v1',
-    
-    async uploadFile(file) {
-        console.log(`[API] Uploading file: ${file.name} to ${this.baseUrl}/upload`);
-        await this.simulateDelay(800);
-        
-        return {
-            success: true,
-            uploadId: this.generateUUID(),
-            filename: file.name,
-            size: file.size,
-            timestamp: new Date().toISOString(),
-            s3Location: `s3://dans-ils-data/uploads/${file.name}`
-        };
+    baseUrl: API_BASE_URL,
+
+    // -----------------------------
+    // Real backend calls
+    // -----------------------------
+    async uploadAndAnalyze(file) {
+        const form = new FormData();
+        form.append('file', file);
+
+        const res = await fetch(`${this.baseUrl}/uploads?allow_overwrite=true`, {
+            method: 'POST',
+            body: form
+        });
+
+        if (!res.ok) {
+            const text = await res.text().catch(() => '');
+            throw new Error(`Upload failed (${res.status}): ${text || res.statusText}`);
+        }
+
+        return res.json();
     },
-    
+
+    async getDates() {
+        const res = await fetch(`${this.baseUrl}/dates`);
+        if (!res.ok) return [];
+        const data = await res.json();
+        return Array.isArray(data) ? data : [];
+    },
+
+    async getDay(dateStr) {
+        const res = await fetch(`${this.baseUrl}/days/${encodeURIComponent(dateStr)}`);
+        if (res.status === 404) return null;
+        if (!res.ok) {
+            const text = await res.text().catch(() => '');
+            throw new Error(`Failed to load day (${res.status}): ${text || res.statusText}`);
+        }
+        return res.json();
+    },
+
+    async getHistory(limit = 100) {
+        const res = await fetch(`${this.baseUrl}/history?limit=${limit}`);
+        if (!res.ok) return [];
+        const data = await res.json();
+        return Array.isArray(data) ? data : [];
+    },
+
+    // -----------------------------
+    // Helpers / compatibility
+    // -----------------------------
+
     /**
      * Detect file period (morning/afternoon) from filename
      * Pattern: ContMon_YYYY-MM-DD-a.log (morning) or ContMon_YYYY-MM-DD-b.log (afternoon)
@@ -208,7 +253,7 @@ const BackendAPI = {
                 periodLabel: match[2].toLowerCase() === 'a' ? 'Morning (a)' : 'Afternoon (b)'
             };
         }
-        
+
         // Try to extract just the date
         const dateMatch = filename.match(/(\d{4}-\d{2}-\d{2})/);
         if (dateMatch) {
@@ -218,7 +263,7 @@ const BackendAPI = {
                 periodLabel: 'Unknown Period'
             };
         }
-        
+
         // Default to today
         const today = new Date().toISOString().split('T')[0];
         return {
@@ -227,226 +272,11 @@ const BackendAPI = {
             periodLabel: 'Unknown Period'
         };
     },
-    
-    async parseLogFile(fileContent) {
-        console.log('[API] Parsing log file content...');
-        await this.simulateDelay(1200);
-        
-        const lines = fileContent.split('\n');
-        const dataLines = lines.filter(line => line.match(/^\d{4}-\d{2}-\d{2}/));
-        
-        const headerLine = lines.find(line => line.startsWith('Timestamp'));
-        const columns = headerLine ? headerLine.split('\t') : [];
-        
-        const records = [];
-        const statusCounts = { normal: 0, warning: 0, alarm: 0, error: 0 };
-        
-        dataLines.forEach(line => {
-            const values = line.split('\t');
-            if (values.length > 1) {
-                const record = {
-                    timestamp: values[0],
-                    measurements: [],
-                    statuses: []
-                };
-                
-                for (let i = 1; i < values.length; i += 2) {
-                    const value = parseFloat(values[i]) || 0;
-                    const status = values[i + 1] ? values[i + 1].trim() : '';
-                    
-                    record.measurements.push(value);
-                    record.statuses.push(status);
-                    
-                    if (status === '' || status === ' ') statusCounts.normal++;
-                    else if (status === 'w' || status === 'W') statusCounts.warning++;
-                    else if (status === 'a' || status === 'A') statusCounts.alarm++;
-                    else if (status === '*' || status === '?') statusCounts.error++;
-                }
-                
-                records.push(record);
-            }
-        });
-        
-        return {
-            success: true,
-            recordCount: records.length,
-            columns: columns,
-            records: records,
-            statusCounts: statusCounts,
-            timeRange: {
-                start: records[0]?.timestamp || 'N/A',
-                end: records[records.length - 1]?.timestamp || 'N/A'
-            }
-        };
-    },
-    
-    async runMLInference(parsedData) {
-        console.log('[API] Running ML inference (simulated)...');
-        await this.simulateDelay(1500);
-        
-        const { statusCounts, recordCount, records } = parsedData;
-        const totalStatuses = Object.values(statusCounts).reduce((a, b) => a + b, 0);
-        
-        const alarmRate = (statusCounts.alarm / totalStatuses) * 100;
-        const warningRate = (statusCounts.warning / totalStatuses) * 100;
-        const errorRate = (statusCounts.error / totalStatuses) * 100;
-        const normalRate = (statusCounts.normal / totalStatuses) * 100;
-        
-        let prediction, confidence, rul, severity;
-        
-        if (alarmRate > 15 || warningRate > 25 || errorRate > 5) {
-            prediction = 'FAULT';
-            confidence = Math.min(95, 70 + alarmRate + warningRate / 2);
-            rul = Math.max(24, Math.floor(500 - (alarmRate * 20) - (warningRate * 5)));
-            severity = 'critical';
-        } else if (alarmRate > 5 || warningRate > 10) {
-            prediction = 'WARNING';
-            confidence = Math.min(92, 75 + alarmRate * 2);
-            rul = Math.max(200, Math.floor(800 - (alarmRate * 30) - (warningRate * 10)));
-            severity = 'moderate';
-        } else {
-            prediction = 'NORMAL';
-            confidence = Math.min(98, 85 + normalRate / 10);
-            rul = Math.max(500, Math.floor(1000 - (alarmRate * 50)));
-            severity = 'none';
-        }
-        
-        const issues = this.identifyIssues(parsedData);
-        
-        return {
-            success: true,
-            prediction: prediction,
-            confidence: confidence.toFixed(1),
-            estimatedRUL: rul,
-            severity: severity,
-            metrics: {
-                alarmRate: alarmRate.toFixed(2),
-                warningRate: warningRate.toFixed(2),
-                errorRate: errorRate.toFixed(2),
-                normalRate: normalRate.toFixed(2)
-            },
-            issues: issues,
-            modelVersion: '1.0.0-simulation',
-            inferenceTime: '1.2s'
-        };
-    },
-    
-    identifyIssues(parsedData) {
-        const issues = [];
-        const { statusCounts, records } = parsedData;
-        
-        let consecutiveAlarms = 0;
-        let maxConsecutive = 0;
-        
-        records.forEach(record => {
-            const hasAlarm = record.statuses.some(s => s === 'a' || s === 'A');
-            if (hasAlarm) {
-                consecutiveAlarms++;
-                maxConsecutive = Math.max(maxConsecutive, consecutiveAlarms);
-            } else {
-                consecutiveAlarms = 0;
-            }
-        });
-        
-        if (maxConsecutive > 10) {
-            issues.push({
-                type: 'sustained_alarm',
-                severity: 'high',
-                description: `Sustained alarm condition detected (${maxConsecutive} consecutive records)`,
-                recommendation: 'Immediate inspection of monitor system required'
-            });
-        }
-        
-        const rfIssues = records.filter(r => {
-            const rfIndex = 2;
-            return r.statuses[rfIndex] === 'A' || r.statuses[rfIndex] === 'a';
-        }).length;
-        
-        if (rfIssues > records.length * 0.05) {
-            issues.push({
-                type: 'rf_level',
-                severity: 'medium',
-                description: 'RF level anomalies detected in monitoring data',
-                recommendation: 'Check transmitter output and antenna connections'
-            });
-        }
-        
-        const ddmValues = records.map(r => r.measurements[0]).filter(v => !isNaN(v));
-        const ddmMean = ddmValues.reduce((a, b) => a + b, 0) / ddmValues.length;
-        const ddmStd = Math.sqrt(ddmValues.reduce((a, b) => a + Math.pow(b - ddmMean, 2), 0) / ddmValues.length);
-        
-        if (ddmStd > 5) {
-            issues.push({
-                type: 'ddm_drift',
-                severity: 'medium',
-                description: `High DDM variability detected (σ = ${ddmStd.toFixed(2)} µA)`,
-                recommendation: 'Calibration check recommended'
-            });
-        }
-        
-        const sdmAlarms = records.filter(r => {
-            const sdmIndex = 1;
-            return r.statuses[sdmIndex] === 'A' || r.statuses[sdmIndex] === 'a';
-        }).length;
-        
-        if (sdmAlarms > records.length * 0.1) {
-            issues.push({
-                type: 'sdm_alarm',
-                severity: 'high',
-                description: 'Modulation depth alarms detected',
-                recommendation: 'Check modulator and signal processing chain'
-            });
-        }
-        
-        if (issues.length === 0 && statusCounts.alarm > 0) {
-            issues.push({
-                type: 'intermittent',
-                severity: 'low',
-                description: 'Intermittent alarm conditions observed',
-                recommendation: 'Continue monitoring, schedule preventive maintenance'
-            });
-        }
-        
-        return issues;
-    },
-    
-    async storeResults(uploadId, parsedData, predictions, fileInfo) {
-        console.log('[API] Storing results to database...');
-        await this.simulateDelay(600);
-        
-        const result = {
-            id: uploadId,
-            timestamp: new Date().toISOString(),
-            filename: fileInfo.filename,
-            dateStr: fileInfo.dateStr,
-            period: fileInfo.period,
-            periodLabel: fileInfo.periodLabel,
-            recordCount: parsedData.recordCount,
-            prediction: predictions.prediction,
-            confidence: predictions.confidence,
-            rul: predictions.estimatedRUL,
-            metrics: predictions.metrics,
-            issues: predictions.issues,
-            statusCounts: parsedData.statusCounts,
-            timeRange: parsedData.timeRange,
-            stored: true
-        };
-        
-        // Store in DataStore
-        DataStore.saveAnalysis(fileInfo.dateStr, fileInfo.period, result);
-        
-        return {
-            success: true,
-            resultId: uploadId,
-            storedAt: result.timestamp,
-            result: result
-        };
-    },
-    
+
     simulateDelay(ms) {
         return new Promise(resolve => setTimeout(resolve, ms));
     },
-    
+
     generateUUID() {
         return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
             const r = Math.random() * 16 | 0;
@@ -455,6 +285,53 @@ const BackendAPI = {
         });
     }
 };
+
+// ============================================
+// NORMALIZERS (backend -> frontend shape)
+// ============================================
+function normalizeAnalysis(a) {
+    if (!a) return null;
+
+    const period = a.period || a.periodName || a.period_name || 'unknown';
+    const periodLabel = period === 'morning' ? 'Morning (a)' : period === 'afternoon' ? 'Afternoon (b)' : 'Unknown Period';
+
+    const statusCounts = {
+        alarm: a.alarm_count ?? a.statusCounts?.alarm ?? a.status_counts?.alarm ?? 0,
+        warning: a.warning_count ?? a.statusCounts?.warning ?? a.status_counts?.warning ?? 0,
+        normal: a.normal_count ?? a.statusCounts?.normal ?? a.status_counts?.normal ?? 0,
+        error: a.error_count ?? a.statusCounts?.error ?? a.status_counts?.error ?? 0
+    };
+
+    return {
+        id: a.id ?? a.upload_id ?? a.uploadId,
+        timestamp: a.uploaded_at ?? a.ingest_timestamp ?? a.timestamp ?? new Date().toISOString(),
+        uploadedAt: a.uploaded_at ?? a.ingest_timestamp ?? a.uploadedAt ?? new Date().toISOString(),
+        filename: a.filename,
+        dateStr: a.date_str ?? a.dateStr,
+        period,
+        periodLabel,
+        recordCount: a.record_count ?? a.recordCount ?? 0,
+        prediction: a.prediction ?? a.ml?.prediction,
+        confidence: a.confidence ?? a.ml?.confidence,
+        rul: a.rul_hours ?? a.rul ?? a.ml?.rul_hours ?? a.ml?.estimatedRUL,
+        severity: a.severity ?? a.ml?.severity,
+        alarmRate: a.alarm_rate ?? a.metrics?.alarmRate ?? a.features?.alarm_rate ?? a.alarmRate,
+        warningRate: a.warning_rate ?? a.metrics?.warningRate ?? a.features?.warning_rate ?? a.warningRate,
+        metrics: a.metrics ?? a.ml?.metrics,
+        issues: a.issues ?? a.ml?.issues ?? [],
+        statusCounts,
+        timeRange: a.timeRange ?? a.time_range ?? { start: 'N/A', end: 'N/A' }
+    };
+}
+
+function normalizeDayData(day) {
+    if (!day) return { morning: null, afternoon: null, combined: null };
+    return {
+        morning: normalizeAnalysis(day.morning),
+        afternoon: normalizeAnalysis(day.afternoon),
+        combined: normalizeAnalysis(day.combined)
+    };
+}
 
 // ============================================
 // DOM ELEMENTS
@@ -497,7 +374,9 @@ document.addEventListener('DOMContentLoaded', function() {
     initializeEventListeners();
     initializeCharts();
     initializeDateNavigation();
-    loadPersistedData();
+    loadPersistedData().catch(err => {
+        console.error('Failed to load persisted data:', err);
+    });
 });
 
 function initializeEventListeners() {
@@ -539,16 +418,26 @@ function initializeDateNavigation() {
     updateDateDisplay();
 }
 
-function loadPersistedData() {
-    const dates = DataStore.getDatesWithData();
-    if (dates.length > 0) {
-        AppState.minHistoryDate = new Date(dates[0]);
+async function loadPersistedData() {
+    // Prefer backend persistence; fall back to localStorage simulation if API is unavailable
+    let dates = [];
+    try {
+        dates = await BackendAPI.getDates();
+        AppState.availableDates = dates;
+    } catch (e) {
+        console.warn('API dates unavailable, falling back to local storage', e);
+        dates = DataStore.getDatesWithData();
+        AppState.availableDates = dates;
     }
-    
+
+    if (dates.length > 0) {
+        AppState.minHistoryDate = new Date(dates[0] + 'T12:00:00');
+    }
+
     // Load data for current date
-    loadDateData(AppState.selectedDate);
-    updateUploadHistory();
-    updateFaultInsights();
+    await loadDateData(AppState.selectedDate);
+    await updateUploadHistory();
+    await updateFaultInsights();
 }
 
 // ============================================
@@ -583,7 +472,7 @@ function updateDateDisplay() {
     nextDateBtn.disabled = selectedStr >= todayStr;
     
     // Check if there's older data
-    const dates = DataStore.getDatesWithData();
+    const dates = (AppState.availableDates && AppState.availableDates.length > 0) ? AppState.availableDates : DataStore.getDatesWithData();
     if (dates.length > 0) {
         const oldestDate = dates[0];
         prevDateBtn.disabled = selectedStr <= oldestDate;
@@ -616,10 +505,22 @@ function handleDatePickerChange(e) {
     loadDateData(selectedDate);
 }
 
-function loadDateData(date) {
+async function loadDateData(date) {
     const dateStr = date.toISOString().split('T')[0];
-    const dayData = DataStore.getDateData(dateStr);
-    
+
+    let dayData;
+    try {
+        const backendDay = await BackendAPI.getDay(dateStr);
+        if (backendDay) {
+            dayData = normalizeDayData(backendDay);
+        } else {
+            dayData = { morning: null, afternoon: null, combined: null };
+        }
+    } catch (e) {
+        console.warn('API day load failed, falling back to local storage', e);
+        dayData = DataStore.getDateData(dateStr);
+    }
+
     updateDayCoverageCard(dayData);
     updateDashboardForDate(dayData, dateStr);
 }
@@ -914,52 +815,57 @@ function resetUpload() {
 // ============================================
 async function startAnalysis() {
     if (AppState.currentFiles.length === 0) return;
-    
+
     document.querySelector('.upload-card').style.display = 'none';
     processingSection.style.display = 'block';
     resultsSection.style.display = 'none';
-    
+
     updateSystemState('processing');
-    
+
     const allResults = [];
-    
+
     try {
         for (let i = 0; i < AppState.currentFiles.length; i++) {
             const file = AppState.currentFiles[i];
             const fileInfo = file.fileInfo;
-            
-            // Step 1: Upload
+
+            // Step 1: Upload (backend also parses + infers + stores)
             updateProcessingStep(1, `Uploading ${file.name}...`);
-            const uploadResult = await BackendAPI.uploadFile(file);
-            
-            // Step 2: Read and parse
+
+            const uploadResponse = await BackendAPI.uploadAndAnalyze(file);
+
+            // Step 2-5: UI progress steps (backend already did the work)
             updateProcessingStep(2, `Parsing ${file.name}...`);
-            const content = await readFileContent(file);
-            const parsedData = await BackendAPI.parseLogFile(content);
-            
-            // Step 3: ML Inference
+            await BackendAPI.simulateDelay(250);
             updateProcessingStep(3, `Running inference on ${file.name}...`);
-            const predictions = await BackendAPI.runMLInference(parsedData);
-            
-            // Step 4: Generate predictions
+            await BackendAPI.simulateDelay(250);
             updateProcessingStep(4, 'Finalizing predictions...');
-            await BackendAPI.simulateDelay(500);
-            
-            // Step 5: Store results
+            await BackendAPI.simulateDelay(250);
             updateProcessingStep(5, 'Storing results...');
-            const storeResult = await BackendAPI.storeResults(
-                uploadResult.uploadId,
-                parsedData,
-                predictions,
-                { filename: file.name, ...fileInfo }
-            );
-            
-            allResults.push(storeResult.result);
+            await BackendAPI.simulateDelay(200);
+
+            // Convert backend response to the frontend analysis shape
+            const analysis = normalizeAnalysis({
+                upload_id: uploadResponse.upload_id,
+                filename: uploadResponse.filename,
+                date_str: uploadResponse.date_str,
+                period: uploadResponse.period,
+                ingest_timestamp: uploadResponse.ingest_timestamp,
+                record_count: uploadResponse.record_count,
+                status_counts: uploadResponse.status_counts,
+                features: uploadResponse.features,
+                ml: uploadResponse.ml
+            });
+
+            // Ensure label from filename detection if backend period is unknown
+            analysis.periodLabel = fileInfo?.periodLabel || analysis.periodLabel;
+
+            allResults.push(analysis);
         }
-        
+
         // Display combined results
         displayResults(allResults);
-        
+
     } catch (error) {
         console.error('Analysis error:', error);
         showToast('Analysis failed: ' + error.message, 'error');
@@ -1294,7 +1200,7 @@ function initializeCharts() {
 
 function updateChartsWithData(data) {
     // Generate some historical data for demo
-    const history = DataStore.getUploadHistory().slice(0, 30);
+    const history = (AppState.history && AppState.history.length > 0 ? AppState.history : DataStore.getUploadHistory()).slice(0, 30);
     
     if (history.length > 0) {
         // RUL Chart
@@ -1352,34 +1258,44 @@ function updateAlertsTable(data) {
 // ============================================
 // UPLOAD HISTORY
 // ============================================
-function updateUploadHistory() {
-    const history = DataStore.getUploadHistory();
+async function updateUploadHistory() {
+    let history = [];
+    try {
+        const backendHistory = await BackendAPI.getHistory(100);
+        history = backendHistory.map(normalizeAnalysis);
+        AppState.history = history;
+    } catch (e) {
+        console.warn('API history unavailable, using local storage', e);
+        history = DataStore.getUploadHistory();
+        AppState.history = history;
+    }
+
     const historyList = document.getElementById('historyList');
     const historyCount = document.getElementById('historyCount');
-    
+
     historyCount.textContent = `${history.length} files`;
-    
+
     if (history.length === 0) {
         historyList.innerHTML = `
-            <div class="empty-history">
-                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <circle cx="12" cy="12" r="10" stroke="#717182" stroke-width="2"/>
-                    <path d="M12 6v6l4 2" stroke="#717182" stroke-width="2" stroke-linecap="round"/>
+            <div class=\"empty-history\">
+                <svg width=\"48\" height=\"48\" viewBox=\"0 0 24 24\" fill=\"none\" xmlns=\"http://www.w3.org/2000/svg\">
+                    <circle cx=\"12\" cy=\"12\" r=\"10\" stroke=\"#717182\" stroke-width=\"2\"/>
+                    <path d=\"M12 6v6l4 2\" stroke=\"#717182\" stroke-width=\"2\" stroke-linecap=\"round\"/>
                 </svg>
                 <p>No upload history yet</p>
             </div>
         `;
         return;
     }
-    
+
     historyList.innerHTML = history.slice(0, 20).map(h => `
-        <div class="history-item">
-            <div class="history-icon ${h.prediction.toLowerCase()}"></div>
-            <div class="history-details">
-                <span class="history-filename">${h.filename}</span>
-                <span class="history-meta">${h.dateStr} • ${h.periodLabel || 'Unknown'}</span>
+        <div class=\"history-item\">
+            <div class=\"history-icon ${String(h.prediction || '').toLowerCase()}\"></div>
+            <div class=\"history-details\">
+                <span class=\"history-filename\">${h.filename || 'Unknown'}</span>
+                <span class=\"history-meta\">${h.dateStr || ''} • ${h.periodLabel || 'Unknown'}</span>
             </div>
-            <span class="history-badge ${h.prediction.toLowerCase()}">${h.prediction === 'NORMAL' ? 'Normal' : h.prediction}</span>
+            <span class=\"history-badge ${String(h.prediction || '').toLowerCase()}\">${h.prediction === 'NORMAL' ? 'Normal' : (h.prediction || 'N/A')}</span>
         </div>
     `).join('');
 }
@@ -1387,28 +1303,33 @@ function updateUploadHistory() {
 // ============================================
 // FAULT INSIGHTS
 // ============================================
-function updateFaultInsights() {
-    const history = DataStore.getUploadHistory();
-    
+async function updateFaultInsights() {
+    // Ensure history is loaded
+    if (!AppState.history || AppState.history.length === 0) {
+        await updateUploadHistory();
+    }
+
+    const history = AppState.history || [];
+
     let faults = 0, warnings = 0, normal = 0;
     history.forEach(h => {
         if (h.prediction === 'FAULT') faults++;
         else if (h.prediction === 'WARNING') warnings++;
         else normal++;
     });
-    
+
     document.getElementById('criticalFaults').textContent = faults;
     document.getElementById('warningFaults').textContent = warnings;
     document.getElementById('totalAnalyses').textContent = history.length;
     document.getElementById('normalOps').textContent = normal;
-    
+
     // Update fault log table
     updateFaultLogTable(history);
-    
+
     // Update chart
     if (history.length > 0) {
         document.getElementById('faultHistoryOverlay').style.display = 'none';
-        
+
         // Group by date
         const byDate = {};
         history.forEach(h => {
@@ -1417,7 +1338,7 @@ function updateFaultInsights() {
             else if (h.prediction === 'WARNING') byDate[h.dateStr].warnings++;
             else byDate[h.dateStr].normal++;
         });
-        
+
         const dates = Object.keys(byDate).sort().slice(-7);
         faultHistoryChart.data.labels = dates;
         faultHistoryChart.data.datasets[0].data = dates.map(d => byDate[d].faults);
