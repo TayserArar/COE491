@@ -739,8 +739,17 @@ body {
     max-height: 280px;
 }
 
+.chart-card-large {
+    min-height: 360px;
+}
+
 .chart-container-fixed {
     height: 180px;
+    position: relative;
+}
+
+.chart-container-live {
+    height: 280px;
     position: relative;
 }
 
@@ -766,6 +775,12 @@ body {
     color: var(--neutral-500);
 }
 
+.header-controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
 .no-data-overlay {
     position: absolute;
     inset: 0;
@@ -776,6 +791,17 @@ body {
     border-radius: var(--border-radius);
     font-size: 14px;
     color: var(--neutral-500);
+}
+
+.sr-only {
+    border: 0;
+    clip: rect(0 0 0 0);
+    height: 1px;
+    margin: -1px;
+    overflow: hidden;
+    padding: 0;
+    position: absolute;
+    width: 1px;
 }
 
 /* ============================================

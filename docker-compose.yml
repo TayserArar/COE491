@@ -4,7 +4,7 @@ services:
     volumes:
       - ./frontend:/usr/share/nginx/html:ro
     ports:
-      - "8080:80"
+      - "8081:80"
     depends_on:
       - api
 
@@ -14,7 +14,7 @@ services:
       - DATABASE_URL=${DATABASE_URL}
       - ML_SERVICE_URL=http://ml-service:8001
       - UPLOAD_DIR=/data/uploads
-      - CORS_ORIGINS=http://localhost:8080
+      - CORS_ORIGINS=http://localhost:8081
     volumes:
       - api_uploads:/data/uploads
     ports:
@@ -29,6 +29,48 @@ services:
     build: ./ml-service
     ports:
       - "8001:8001"
+
+  mqtt-broker:
+    build: ./mosquitto
+    environment:
+      - MQTT_PRODUCER_USER=producer
+      - MQTT_PRODUCER_PASS=producer_pass
+      - MQTT_INGESTION_USER=ingestion
+      - MQTT_INGESTION_PASS=ingestion_pass
+    ports:
+      - "1883:1883"
+
+  ingestion-service:
+    build: ./ingestion-service
+    environment:
+      - MQTT_HOST=mqtt-broker
+      - MQTT_PORT=1883
+      - MQTT_USER=ingestion
+      - MQTT_PASS=ingestion_pass
+      - CORS_ORIGINS=http://localhost:8081,http://127.0.0.1:8081
+    ports:
+      - "8080:8080"
+    depends_on:
+      - mqtt-broker
+
+  fake-ils:
+    build: ./fake-ils
+    environment:
+      - MQTT_HOST=mqtt-broker
+      - MQTT_PORT=1883
+      - MQTT_USER=producer
+      - MQTT_PASS=producer_pass
+      - RATE_HZ=5
+      - LOOP=true
+      - SOURCE_ID=fake-ils-01
+      - LLZ_DIR=/data/llz_logs
+      - GP_DIR=/data/gp_logs
+      - HEADER_LINES=17
+    volumes:
+      - "./30L LLZ:/data/llz_logs:ro"
+      - "./30L GP:/data/gp_logs:ro"
+    depends_on:
+      - mqtt-broker
 
   db:
     image: postgres:16
