@@ -15,6 +15,17 @@ services:
       - ML_SERVICE_URL=http://ml-service:8001
       - UPLOAD_DIR=/data/uploads
       - CORS_ORIGINS=http://localhost:8081
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_ALGORITHM=HS256
+      - JWT_EXPIRES_MINUTES=480
+      - INGESTION_API_KEY=${INGESTION_API_KEY}
+      - ADMIN_EMAIL=${ADMIN_EMAIL}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD}
+      - ADMIN_NAME=${ADMIN_NAME}
+      - ENGINEER_EMAIL=${ENGINEER_EMAIL}
+      - ENGINEER_PASSWORD=${ENGINEER_PASSWORD}
+      - ENGINEER_NAME=${ENGINEER_NAME}
+      - ENGINEER_DEPARTMENT=${ENGINEER_DEPARTMENT}
     volumes:
       - api_uploads:/data/uploads
     ports:
@@ -48,6 +59,12 @@ services:
       - MQTT_USER=ingestion
       - MQTT_PASS=ingestion_pass
       - CORS_ORIGINS=http://localhost:8081,http://127.0.0.1:8081
+      - DATABASE_URL=${DATABASE_URL}
+      - API_URL=http://api:8000
+      - INGESTION_API_KEY=${INGESTION_API_KEY}
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_ALGORITHM=HS256
+      - WINDOW_SECONDS=300
     ports:
       - "8080:8080"
     depends_on:
@@ -60,7 +77,7 @@ services:
       - MQTT_PORT=1883
       - MQTT_USER=producer
       - MQTT_PASS=producer_pass
-      - RATE_HZ=5
+      - RATE_HZ=1
       - LOOP=true
       - SOURCE_ID=fake-ils-01
       - LLZ_DIR=/data/llz_logs

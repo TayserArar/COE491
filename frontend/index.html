@@ -39,10 +39,12 @@
                     </label>
                     <a href="#" class="forgot-link">Forgot password?</a>
                 </div>
+                <div id="loginError" class="login-error" aria-live="polite"></div>
                 <button type="submit" class="btn btn-primary">Sign In</button>
             </form>
             <div class="demo-credentials">
-                <p>Demo: Any email/password to login</p>
+                <p>Demo Admin: admin@dans.ae / admin123</p>
+                <p>Demo Engineer: engineer@dans.ae / engineer123</p>
             </div>
         </div>
     </div>
@@ -455,7 +457,7 @@
                 <div id="userManagementPage" class="page">
                     <div class="page-header">
                         <h2>User Management</h2>
-                        <button class="btn btn-primary">
+                        <button class="btn btn-primary" id="addUserBtn">
                             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                                 <line x1="12" y1="5" x2="12" y2="19" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
                                 <line x1="5" y1="12" x2="19" y2="12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
@@ -468,28 +470,28 @@
                         <div class="user-stat-card">
                             <span class="stat-icon">👥</span>
                             <div>
-                                <div class="stat-value">2</div>
+                                <div class="stat-value" id="totalUsers">0</div>
                                 <span class="stat-label">Total Users</span>
                             </div>
                         </div>
                         <div class="user-stat-card">
                             <span class="stat-icon">✅</span>
                             <div>
-                                <div class="stat-value">2</div>
+                                <div class="stat-value" id="activeUsers">0</div>
                                 <span class="stat-label">Active Users</span>
                             </div>
                         </div>
                         <div class="user-stat-card">
                             <span class="stat-icon">👤</span>
                             <div>
-                                <div class="stat-value">1</div>
+                                <div class="stat-value" id="adminUsers">0</div>
                                 <span class="stat-label">Admins</span>
                             </div>
                         </div>
                         <div class="user-stat-card">
                             <span class="stat-icon">🕐</span>
                             <div>
-                                <div class="stat-value">1</div>
+                                <div class="stat-value" id="onlineUsers">0</div>
                                 <span class="stat-label">Online Now</span>
                             </div>
                         </div>
@@ -512,7 +514,7 @@
                                         <th>Actions</th>
                                     </tr>
                                 </thead>
-                                <tbody>
+                                <tbody id="userTableBody">
                                     <tr>
                                         <td>
                                             <div class="user-info-cell">
@@ -569,6 +571,55 @@
                 </div>
             </div>
         </main>
+    </div>
+
+    <div class="modal hidden" id="userModal" aria-hidden="true">
+        <div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="userModalTitle">
+            <div class="modal-header">
+                <h3 id="userModalTitle">Add User</h3>
+                <button class="modal-close" id="closeUserModal" aria-label="Close">×</button>
+            </div>
+            <form id="userForm" class="modal-form">
+                <div class="form-group">
+                    <label for="userName">Name</label>
+                    <input type="text" id="userName" required>
+                </div>
+                <div class="form-group">
+                    <label for="userEmail">Email</label>
+                    <input type="email" id="userEmail" required>
+                </div>
+                <div class="form-group">
+                    <label for="userRole">Role</label>
+                    <select id="userRole" class="select-control">
+                        <option value="engineer">Engineer</option>
+                        <option value="admin">Admin</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="userDepartment">Department</label>
+                    <input type="text" id="userDepartment" placeholder="Operations">
+                </div>
+                <div class="form-group" id="passwordGroup">
+                    <label for="userPassword">Password</label>
+                    <input type="password" id="userPassword" minlength="8">
+                </div>
+                <div class="form-group hidden" id="resetGroup">
+                    <label for="userResetPassword">Reset Password</label>
+                    <input type="password" id="userResetPassword" minlength="8" placeholder="Leave blank to keep unchanged">
+                </div>
+                <div class="form-footer">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="userActive" checked>
+                        <span>Active</span>
+                    </label>
+                </div>
+                <div id="userFormError" class="login-error" aria-live="polite"></div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-outline" id="cancelUserModal">Cancel</button>
+                    <button type="submit" class="btn btn-primary" id="saveUserBtn">Save</button>
+                </div>
+            </form>
+        </div>
     </div>
 
     <!-- Toast Notifications -->

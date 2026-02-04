@@ -92,6 +92,63 @@ body {
     gap: 20px;
 }
 
+.login-error {
+    color: #B91C1C;
+    font-size: 0.9rem;
+    min-height: 18px;
+}
+
+.hidden {
+    display: none !important;
+}
+
+.modal {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.45);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    z-index: 2000;
+}
+
+.modal-content {
+    background: #fff;
+    border-radius: 12px;
+    width: 100%;
+    max-width: 520px;
+    box-shadow: var(--shadow-lg);
+    padding: 24px;
+}
+
+.modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+}
+
+.modal-close {
+    border: none;
+    background: transparent;
+    font-size: 24px;
+    cursor: pointer;
+    color: var(--neutral-600);
+}
+
+.modal-form {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+}
+
 .form-group {
     display: flex;
     flex-direction: column;
