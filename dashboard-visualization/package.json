@@ -1,0 +1,19 @@
+{
+  "name": "dans-ils-file-watcher",
+  "version": "1.0.0",
+  "description": "Real-time file watcher for DANS ILS Predictive Maintenance Dashboard",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js --dev"
+  },
+  "dependencies": {
+    "chokidar": "^3.5.3",
+    "express": "^4.18.2",
+    "ws": "^8.14.2",
+    "cors": "^2.8.5"
+  },
+  "keywords": ["file-watcher", "chokidar", "websocket", "ils", "maintenance"],
+  "author": "DANS Engineering",
+  "license": "MIT"
+}

@@ -1,0 +1,15 @@
+﻿# Node.js
+node_modules/
+package-lock.json
+
+# Generated data (can be regenerated)
+processed_data.json
+
+# Python
+__pycache__/
+*.pyc
+.env
+
+# OS files
+.DS_Store
+Thumbs.db
