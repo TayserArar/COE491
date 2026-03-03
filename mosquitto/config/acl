@@ -4,3 +4,4 @@ topic write ils/gp/telemetry
 
 user ingestion
 topic read ils/+/telemetry
+topic read $SYS/broker/uptime

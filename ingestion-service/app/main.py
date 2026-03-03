@@ -4,17 +4,18 @@ import logging
 import os
 import threading
 import time
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Any, Dict, List, Optional
+from zoneinfo import ZoneInfo
 
 import paho.mqtt.client as mqtt
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect, Header
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import create_engine, text
 import httpx
-from jose import jwt, JWTError
+import jwt
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s [%(name)s] %(message)s")
 logger = logging.getLogger("ingestion")
 
 MQTT_HOST = os.getenv("MQTT_HOST", "mqtt-broker")
@@ -23,10 +24,12 @@ MQTT_USER = os.getenv("MQTT_USER", "ingestion")
 MQTT_PASS = os.getenv("MQTT_PASS", "ingestion_pass")
 DATABASE_URL = os.getenv("DATABASE_URL")
 API_URL = os.getenv("API_URL", "http://api:8000")
-WINDOW_SECONDS = int(os.getenv("WINDOW_SECONDS", "300"))
+WINDOW_SIZE = int(os.getenv("WINDOW_SIZE", "300"))
+SLIDE_SIZE = int(os.getenv("SLIDE_SIZE", "30"))
 INGESTION_API_KEY = os.getenv("INGESTION_API_KEY", "")
 JWT_SECRET = os.getenv("JWT_SECRET", "change_me")
 JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
+UAE_TZ = ZoneInfo("Asia/Dubai")
 
 SUBSYSTEMS = {"llz", "gp"}
 
@@ -42,17 +45,22 @@ app.add_middleware(
     allow_credentials=True,
 )
 
+
+@app.get("/health")
+def healthcheck():
+    return {"status": "ok"}
+
 connections: Dict[WebSocket, str] = {}
 connections_lock = asyncio.Lock()
 
 broadcast_queue: asyncio.Queue[Dict[str, Any]] = asyncio.Queue()
 latest_by_subsystem: Dict[str, Dict[str, Any]] = {}
-last_seq: Dict[tuple, int] = {}
-window_buffers: Dict[str, Dict[str, Any]] = {s: {"start": None, "samples": []} for s in SUBSYSTEMS}
+last_seen_ts: Dict[tuple, str] = {}
+window_buffers: Dict[str, Dict[str, Any]] = {s: {"samples": []} for s in SUBSYSTEMS}
+rows_since_last_flush: Dict[str, int] = {s: 0 for s in SUBSYSTEMS}
 window_lock = threading.Lock()
 
 _event_loop: asyncio.AbstractEventLoop | None = None
-_mqtt_client: mqtt.Client | None = None
 _db_engine = None
 _persist_enabled = False
 
@@ -144,17 +152,30 @@ def _validate_payload(payload: Dict[str, Any]) -> bool:
 
 def _parse_ts(ts_value: str) -> Optional[datetime]:
     try:
-        return datetime.fromisoformat(ts_value.replace("Z", "+00:00")).astimezone(timezone.utc)
+        return datetime.fromisoformat(ts_value.replace("Z", "+00:00"))
     except ValueError:
         return None
 
 
 def _should_accept(payload: Dict[str, Any]) -> bool:
     key = (payload["source_id"], payload["subsystem"])
-    prev = last_seq.get(key)
-    if prev is not None and payload["seq"] <= prev:
+    current_ts = payload.get("ts", "")
+    prev_ts = last_seen_ts.get(key)
+    if prev_ts is not None and current_ts <= prev_ts:
+        # Timestamp went backwards — likely a month/source change
+        prev_dt = _parse_ts(prev_ts)
+        curr_dt = _parse_ts(current_ts)
+        if prev_dt and curr_dt and (prev_dt - curr_dt).total_seconds() > 300:
+            logger.info("Timestamp reset detected for %s — clearing buffer", key)
+            with window_lock:
+                buf = window_buffers.get(payload["subsystem"])
+                if buf:
+                    buf["samples"] = []
+                rows_since_last_flush[payload["subsystem"]] = 0
+            last_seen_ts[key] = current_ts
+            return True
         return False
-    last_seq[key] = payload["seq"]
+    last_seen_ts[key] = current_ts
     return True
 
 
@@ -220,8 +241,6 @@ def _buffer_sample(payload: Dict[str, Any]) -> None:
         buf = window_buffers.get(payload["subsystem"])
         if buf is None:
             return
-        if buf["start"] is None:
-            buf["start"] = ts_value
         buf["samples"].append(
             {
                 "ts": ts_value,
@@ -229,6 +248,11 @@ def _buffer_sample(payload: Dict[str, Any]) -> None:
                 "signals": payload.get("signals", {}),
             }
         )
+        rows_since_last_flush[payload["subsystem"]] += 1
+        
+        # Keep only the last WINDOW_SIZE samples
+        if len(buf["samples"]) > WINDOW_SIZE:
+            buf["samples"] = buf["samples"][-WINDOW_SIZE:]
 
 
 async def _broadcast_worker() -> None:
@@ -251,13 +275,11 @@ async def _flush_ready_windows() -> None:
             samples = buf["samples"]
             if not samples:
                 continue
-            start_ts = buf["start"]
-            end_ts = samples[-1]["ts"]
-            start_dt = _parse_ts(start_ts) if start_ts else None
-            end_dt = _parse_ts(end_ts)
-            if not start_dt or not end_dt:
-                continue
-            if (end_dt - start_dt).total_seconds() >= WINDOW_SECONDS:
+            
+            # Check if we have enough rows and have slid enough
+            if len(samples) >= WINDOW_SIZE and rows_since_last_flush[subsystem] >= SLIDE_SIZE:
+                start_ts = samples[0]["ts"]
+                end_ts = samples[-1]["ts"]
                 to_send.append(
                     {
                         "subsystem": subsystem,
@@ -268,8 +290,7 @@ async def _flush_ready_windows() -> None:
                         },
                     }
                 )
-                buf["start"] = None
-                buf["samples"] = []
+                rows_since_last_flush[subsystem] = 0
 
     for payload in to_send:
         await _send_window(payload)
@@ -368,7 +389,7 @@ def _validate_token(token: str | None) -> bool:
     try:
         payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
         return bool(payload.get("sub"))
-    except JWTError:
+    except jwt.PyJWTError:
         return False
 
 

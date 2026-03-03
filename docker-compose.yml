@@ -1,20 +1,44 @@
 services:
-  frontend:
-    image: nginx:alpine
+  # ── TLS reverse proxy ──────────────────────────────────────────────────────
+  # Terminates HTTPS/WSS on :443 and proxies to the internal services.
+  # Run `bash tls/gen-certs.sh` first to generate self-signed certs for dev.
+  nginx-proxy:
+    build: ./nginx
+    ports:
+      - "80:80" # redirects to 443
+      - "443:443" # HTTPS / WSS
     volumes:
       - ./frontend:/usr/share/nginx/html:ro
-    ports:
-      - "8081:80"
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./tls/cert.pem:/etc/nginx/tls/cert.pem:ro
+      - ./tls/key.pem:/etc/nginx/tls/key.pem:ro
     depends_on:
       - api
+      - ingestion-service
+      - fake-ils
+    restart: unless-stopped
+
+  frontend:
+    image: nginx:alpine
+    environment:
+      - TZ=Asia/Dubai
+    volumes:
+      - ./frontend:/usr/share/nginx/html:ro
+      - ./frontend/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    ports:
+      - "8081:80" # kept for direct dev access without TLS
+    depends_on:
+      - api
+    restart: unless-stopped
 
   api:
     build: ./api
     environment:
+      - TZ=Asia/Dubai
       - DATABASE_URL=${DATABASE_URL}
       - ML_SERVICE_URL=http://ml-service:8001
       - UPLOAD_DIR=/data/uploads
-      - CORS_ORIGINS=http://localhost:8081
+      - CORS_ORIGINS=https://localhost,http://localhost:8081
       - JWT_SECRET=${JWT_SECRET}
       - JWT_ALGORITHM=HS256
       - JWT_EXPIRES_MINUTES=480
@@ -26,8 +50,10 @@ services:
       - ENGINEER_PASSWORD=${ENGINEER_PASSWORD}
       - ENGINEER_NAME=${ENGINEER_NAME}
       - ENGINEER_DEPARTMENT=${ENGINEER_DEPARTMENT}
+      - PYTHONPATH=/packages
     volumes:
       - api_uploads:/data/uploads
+      - ./shared:/packages/shared:ro
     ports:
       - "8000:8000"
     depends_on:
@@ -35,44 +61,99 @@ services:
         condition: service_healthy
       ml-service:
         condition: service_started
+    restart: unless-stopped
+    healthcheck:
+      test: [ "CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health')\"" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
 
   ml-service:
     build: ./ml-service
+    environment:
+      - TZ=Asia/Dubai
+      - MODEL_GP_PATH=/app/models/lstm_gp.keras
+      - MODEL_GP_LABELS_PATH=/app/models/lstm_gp_labels.npy
+      - MODEL_LLZ_PATH=/app/models/lstm_llz.keras
+      - MODEL_LLZ_LABELS_PATH=/app/models/lstm_llz_labels.npy
+      - MODEL_BINARY_THRESHOLD=0.5
+      - HEALTHY_GP_AE_PATH=/app/models/healthy/gp_ae.pt
+      - HEALTHY_GP_FC_PATH=/app/models/healthy/gp_fc.pt
+      - HEALTHY_GP_SCALER_PATH=/app/models/healthy/gp_scaler.npz
+      - HEALTHY_GP_THRESHOLDS_PATH=/app/models/healthy/gp_thresholds.json
+      - HEALTHY_LLZ_AE_PATH=/app/models/healthy/llz_ae.pt
+      - HEALTHY_LLZ_FC_PATH=/app/models/healthy/llz_fc.pt
+      - HEALTHY_LLZ_SCALER_PATH=/app/models/healthy/llz_scaler.npz
+      - HEALTHY_LLZ_THRESHOLDS_PATH=/app/models/healthy/llz_thresholds.json
+      - PYTHONPATH=/packages
+    volumes:
+      - ./shared:/packages/shared:ro
     ports:
       - "8001:8001"
+    restart: unless-stopped
+    healthcheck:
+      test: [ "CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8001/health')\"" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
 
   mqtt-broker:
     build: ./mosquitto
     environment:
+      - TZ=Asia/Dubai
       - MQTT_PRODUCER_USER=producer
       - MQTT_PRODUCER_PASS=producer_pass
       - MQTT_INGESTION_USER=ingestion
       - MQTT_INGESTION_PASS=ingestion_pass
+    volumes:
+      - ./tls/cert.pem:/mosquitto/tls/cert.pem:ro
+      - ./tls/key.pem:/mosquitto/tls/key.pem:ro
     ports:
-      - "1883:1883"
+      - "1883:1883" # plain-text — internal Docker network (fake-ils, ingestion-service)
+      - "8883:8883" # MQTTS — for external clients / real ILS hardware
+    restart: unless-stopped
+    healthcheck:
+      test: [ "CMD-SHELL", "mosquitto_sub -h localhost -p 1883 -u ingestion -P ingestion_pass -t '$$SYS/broker/uptime' -C 1 -W 3" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
 
   ingestion-service:
     build: ./ingestion-service
     environment:
+      - TZ=Asia/Dubai
       - MQTT_HOST=mqtt-broker
       - MQTT_PORT=1883
       - MQTT_USER=ingestion
       - MQTT_PASS=ingestion_pass
-      - CORS_ORIGINS=http://localhost:8081,http://127.0.0.1:8081
+      - CORS_ORIGINS=https://localhost,http://localhost:8081,http://127.0.0.1:8081
       - DATABASE_URL=${DATABASE_URL}
       - API_URL=http://api:8000
       - INGESTION_API_KEY=${INGESTION_API_KEY}
       - JWT_SECRET=${JWT_SECRET}
       - JWT_ALGORITHM=HS256
-      - WINDOW_SECONDS=300
+      - WINDOW_SIZE=300
+      - SLIDE_SIZE=30
     ports:
       - "8080:8080"
     depends_on:
-      - mqtt-broker
+      mqtt-broker:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: [ "CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8080/health')\"" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
   fake-ils:
     build: ./fake-ils
     environment:
+      - TZ=Asia/Dubai
       - MQTT_HOST=mqtt-broker
       - MQTT_PORT=1883
       - MQTT_USER=producer
@@ -82,16 +163,28 @@ services:
       - SOURCE_ID=fake-ils-01
       - LLZ_DIR=/data/llz_logs
       - GP_DIR=/data/gp_logs
-      - HEADER_LINES=17
+      - CORS_ORIGINS=https://localhost,http://localhost:8081,http://127.0.0.1:8081
     volumes:
       - "./30L LLZ:/data/llz_logs:ro"
       - "./30L GP:/data/gp_logs:ro"
+    ports:
+      - "8082:8082"
     depends_on:
-      - mqtt-broker
+      mqtt-broker:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: [ "CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8082/health')\"" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
   db:
     image: postgres:16
+    command: [ "postgres", "-c", "timezone=Asia/Dubai" ]
     environment:
+      - TZ=Asia/Dubai
       - POSTGRES_DB=${POSTGRES_DB}
       - POSTGRES_USER=${POSTGRES_USER}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
@@ -100,10 +193,11 @@ services:
     ports:
       - "5432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      test: [ "CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}" ]
       interval: 2s
       timeout: 3s
       retries: 30
+    restart: unless-stopped
 
 volumes:
   pgdata:

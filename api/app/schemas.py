@@ -1,4 +1,5 @@
 from pydantic import BaseModel
+from shared.schemas import TelemetrySample, WindowData  # noqa: F401 — re-exported for API consumers
 from typing import Any, Dict, List, Optional
 
 class Issue(BaseModel):
@@ -8,27 +9,9 @@ class Issue(BaseModel):
     recommendation: str
 
 
-class TelemetrySample(BaseModel):
-    ts: str
-    seq: Optional[int] = None
-    signals: Dict[str, float]
-
-
-class WindowData(BaseModel):
-    start_ts: str
-    end_ts: str
-    samples: List[TelemetrySample]
-
-
 class TelemetryWindowRequest(BaseModel):
     subsystem: str
     window: WindowData
-    metadata: Dict[str, Any] = {}
-
-
-class PredictRequest(BaseModel):
-    subsystem: str
-    features: Dict[str, Any]
     metadata: Dict[str, Any] = {}
 
 
@@ -88,10 +71,10 @@ class PredictResponse(BaseModel):
     prediction: str
     fault_type: Optional[str] = None
     confidence: float
-    rul_hours: float
     anomaly_rate: float
     issues: List[Issue]
     model_version: str
+    metrics: Dict[str, Any] = {}
 
 class UploadResponse(BaseModel):
     upload_id: int
@@ -100,23 +83,6 @@ class UploadResponse(BaseModel):
     features: Dict[str, Any]
     ml: PredictResponse
 
-class Analysis(BaseModel):
-    prediction: str
-    faultType: Optional[str] = None
-    confidence: str
-    rul: int
-    severity: str
-    recordCount: int
-    alarmRate: str
-    warningRate: str
-    statusCounts: Dict[str, int]
-    timeRange: Dict[str, str]
-    issues: List[Issue]
-
-class DayDataResponse(BaseModel):
-    morning: Optional[Analysis] = None
-    afternoon: Optional[Analysis] = None
-    combined: Optional[Analysis] = None
 
 class HistoryItem(BaseModel):
     uploadId: int
@@ -129,6 +95,7 @@ class HistoryItem(BaseModel):
     prediction: str
     faultType: Optional[str] = None
     anomalyRate: Optional[float] = None
+    metrics: Optional[Dict[str, Any]] = None
+    modelVersion: Optional[str] = None
     confidence: str
-    rul: int
     uploadedAt: str

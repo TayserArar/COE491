@@ -21,6 +21,24 @@ const MAX_POINTS = 600;
 const RENDER_INTERVAL_MS = 250;
 const LIVE_WINDOW_MS = 10000;
 const CHART_WINDOW_MS = 5 * 60 * 1000;
+const UAE_TIME_ZONE = 'Asia/Dubai';
+const UAE_DATE_TIME_FORMATTER = new Intl.DateTimeFormat('en-GB', {
+    timeZone: UAE_TIME_ZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+});
+const UAE_TIME_FORMATTER = new Intl.DateTimeFormat('en-GB', {
+    timeZone: UAE_TIME_ZONE,
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+});
 const PREFERRED_SIGNAL = "MON1 CL DDM (\u00b5A)";
 const API_BASE = (() => {
     const host = window.location.hostname || 'localhost';
@@ -45,8 +63,6 @@ const selectedSignal = {
 let llzChart = null;
 let gpChart = null;
 let renderTimer = null;
-let rulChart = null;
-let faultChart = null;
 
 const loginScreen = document.getElementById('loginScreen');
 const dashboardScreen = document.getElementById('dashboardScreen');
@@ -65,9 +81,6 @@ const sidebarStateIcon = document.querySelector('#sidebarSystemState .state-icon
 const systemBanner = document.getElementById('systemBanner');
 const bannerTitle = document.getElementById('bannerTitle');
 const bannerMessage = document.getElementById('bannerMessage');
-const statusCard = document.getElementById('statusCard');
-const systemStatusValue = document.getElementById('systemStatusValue');
-const systemStatusDesc = document.getElementById('systemStatusDesc');
 
 const coverageBadge = document.getElementById('coverageBadge');
 const morningSegment = document.getElementById('morningSegment');
@@ -83,27 +96,15 @@ const llzMeta = document.getElementById('llzMeta');
 const gpMeta = document.getElementById('gpMeta');
 const llzLiveOverlay = document.getElementById('llzLiveOverlay');
 const gpLiveOverlay = document.getElementById('gpLiveOverlay');
-const rulChartOverlay = document.getElementById('rulChartOverlay');
-const faultChartOverlay = document.getElementById('faultChartOverlay');
-const rulValue = document.getElementById('rulValue');
-const rulTrend = document.getElementById('rulTrend');
-const rulDesc = document.getElementById('rulDesc');
-const anomalyRate = document.getElementById('anomalyRate');
-const anomalyTrend = document.getElementById('anomalyTrend');
-const anomalyDesc = document.getElementById('anomalyDesc');
 const lastAnalysisValue = document.getElementById('lastAnalysisValue');
 const lastAnalysisDesc = document.getElementById('lastAnalysisDesc');
 const userInfoLabel = document.querySelector('.user-info');
 
-const prevDateBtn = document.getElementById('prevDateBtn');
-const nextDateBtn = document.getElementById('nextDateBtn');
-const currentDateDisplay = document.getElementById('currentDateDisplay');
-const datePickerInput = document.getElementById('datePickerInput');
 const alertsTableBody = document.getElementById('alertsTableBody');
 const faultLogBody = document.getElementById('faultLogBody');
 const faultTypeFilter = document.getElementById('faultTypeFilter');
 const criticalFaults = document.getElementById('criticalFaults');
-const warningFaults = document.getElementById('warningFaults');
+
 const totalAnalyses = document.getElementById('totalAnalyses');
 const normalOps = document.getElementById('normalOps');
 const userTableBody = document.getElementById('userTableBody');
@@ -128,13 +129,25 @@ const passwordGroup = document.getElementById('passwordGroup');
 const resetGroup = document.getElementById('resetGroup');
 const userFormError = document.getElementById('userFormError');
 const activityLog = document.getElementById('activityLog');
+const viewAllAlertsBtn = document.getElementById('viewAllAlertsBtn');
 
 let editingUserId = null;
+
+
+function escapeHtml(str) {
+    if (str == null) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
 
 function initialize() {
     initializeEventListeners();
     initializeCharts();
-    initializeDateNavigation();
+    loadMonths();
     setConnectionState('disconnected');
     updateCoverageStatus();
     setUserRoleVisibility();
@@ -146,9 +159,96 @@ function initialize() {
     }, RENDER_INTERVAL_MS);
 }
 
+const FAKE_ILS_URL = `http://${window.location.hostname || 'localhost'}:8082`;
+
+async function loadMonths() {
+    const select = document.getElementById('monthFilterSelect');
+    if (!select) return;
+    try {
+        const res = await fetch(`${FAKE_ILS_URL}/v1/months`);
+        if (!res.ok) return;
+        const data = await res.json();
+        const monthNames = {
+            '01': 'January', '02': 'February', '03': 'March',
+            '04': 'April', '05': 'May', '06': 'June',
+            '07': 'July', '08': 'August', '09': 'September',
+            '10': 'October', '11': 'November', '12': 'December'
+        };
+        // Only keep the "All Months" default option, then append available months
+        select.innerHTML = '<option value="">All Months</option>';
+        (data.months || []).forEach(m => {
+            const [year, month] = m.split('-');
+            const label = `${monthNames[month] || month} ${year}`;
+            const opt = document.createElement('option');
+            opt.value = m;
+            opt.textContent = label;
+            if (m === data.active) opt.selected = true;
+            select.appendChild(opt);
+        });
+        // Show the current active month in the status message
+        if (data.active) {
+            const [y, mo] = data.active.split('-');
+            const msg = document.getElementById('monthStatusMsg');
+            if (msg) msg.textContent = `Streaming: ${monthNames[mo] || mo} ${y}`;
+        }
+    } catch (_) {
+        // fake-ils API may not be running (e.g. in CI); silently skip
+    }
+}
+
+async function applyMonth() {
+    const select = document.getElementById('monthFilterSelect');
+    const btn = document.getElementById('applyMonthBtn');
+    const msg = document.getElementById('monthStatusMsg');
+    if (!select || !btn) return;
+
+    const month = select.value || null;
+    btn.disabled = true;
+    if (msg) { msg.textContent = 'Applying…'; msg.className = 'month-status-msg'; }
+
+    try {
+        const res = await fetch(`${FAKE_ILS_URL}/v1/month`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ month }),
+        });
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            if (msg) { msg.textContent = err.detail || 'Error'; msg.className = 'month-status-msg error'; }
+            return;
+        }
+        const monthNames = {
+            '01': 'January', '02': 'February', '03': 'March',
+            '04': 'April', '05': 'May', '06': 'June',
+            '07': 'July', '08': 'August', '09': 'September',
+            '10': 'October', '11': 'November', '12': 'December'
+        };
+        if (msg) {
+            if (month) {
+                const [y, mo] = month.split('-');
+                msg.textContent = `Now streaming: ${monthNames[mo] || mo} ${y}`;
+            } else {
+                msg.textContent = 'Now streaming: All Months';
+            }
+            msg.className = 'month-status-msg success';
+            setTimeout(() => { if (msg) msg.className = 'month-status-msg'; }, 4000);
+        }
+    } catch (_) {
+        if (msg) { msg.textContent = 'Fake-ILS API unreachable'; msg.className = 'month-status-msg error'; }
+    } finally {
+        btn.disabled = false;
+    }
+}
+
 function initializeEventListeners() {
     loginForm.addEventListener('submit', handleLogin);
     logoutBtn.addEventListener('click', handleLogout);
+
+    if (viewAllAlertsBtn) {
+        viewAllAlertsBtn.addEventListener('click', () => {
+            navigateToPage('fault-insights');
+        });
+    }
 
     navItems.forEach(item => {
         item.addEventListener('click', (event) => {
@@ -174,6 +274,11 @@ function initializeEventListeners() {
         if (!AppState.isLoggedIn) return;
         reconnectTelemetry();
     });
+
+    const applyMonthBtn = document.getElementById('applyMonthBtn');
+    if (applyMonthBtn) {
+        applyMonthBtn.addEventListener('click', applyMonth);
+    }
 
     if (faultTypeFilter) {
         faultTypeFilter.addEventListener('change', () => {
@@ -212,18 +317,13 @@ function initializeEventListeners() {
             const user = AppState.users ? AppState.users.find(u => u.id === userId) : null;
             if (action === 'edit') {
                 openUserModal('edit', user);
+            } else if (action === 'delete') {
+                handleDeleteUser(user);
             }
         });
     }
-}
 
-function initializeDateNavigation() {
-    if (currentDateDisplay) {
-        currentDateDisplay.textContent = 'Live Telemetry';
-    }
-    if (prevDateBtn) prevDateBtn.disabled = true;
-    if (nextDateBtn) nextDateBtn.disabled = true;
-    if (datePickerInput) datePickerInput.disabled = true;
+    initUploadPageEvents();
 }
 
 async function authLogin(email, password) {
@@ -371,6 +471,38 @@ async function handleUserFormSubmit(event) {
     }
 }
 
+async function handleDeleteUser(user) {
+    if (!user || !AppState.token) return;
+    if (AppState.user && user.id === AppState.user.id) {
+        window.alert('You cannot delete your own account');
+        return;
+    }
+
+    const confirmed = window.confirm(`Delete user ${user.email}? This action cannot be undone.`);
+    if (!confirmed) return;
+
+    try {
+        const response = await authFetch(`${API_BASE}/v1/users/${user.id}`, {
+            method: 'DELETE'
+        });
+        if (!response.ok) {
+            let detail = 'Failed to delete user';
+            try {
+                const payload = await response.json();
+                if (payload && payload.detail) {
+                    detail = payload.detail;
+                }
+            } catch (_) {
+                // Ignore parse errors and use generic message.
+            }
+            throw new Error(detail);
+        }
+        await loadUsers();
+    } catch (error) {
+        window.alert(error.message || 'Failed to delete user');
+    }
+}
+
 async function loadHistory() {
     try {
         const response = await authFetch(`${API_BASE}/v1/history?limit=100`);
@@ -381,8 +513,6 @@ async function loadHistory() {
         renderAlerts(items);
         renderFaultLog(items);
         updateFaultStats(items);
-        updateDashboardKPIs(items);
-        updateOverviewCharts(items);
         if (AppState.role === 'admin') {
             loadUsers();
         }
@@ -431,16 +561,17 @@ function renderUsers(users) {
             <td>
                 <div class="user-info-cell">
                     <div class="avatar">${initials}</div>
-                    <span>${user.name || user.email}</span>
+                    <span>${escapeHtml(user.name || user.email)}</span>
                 </div>
             </td>
-            <td>${user.email}</td>
+            <td>${escapeHtml(user.email)}</td>
             <td><span class="badge ${roleBadge}">${user.role}</span></td>
-            <td>${user.department || '--'}</td>
+            <td>${escapeHtml(user.department || '--')}</td>
             <td>${lastActive}</td>
             <td><span class="badge ${statusBadge}">${user.isActive ? 'Active' : 'Inactive'}</span></td>
             <td>
                 <button class="btn-icon" data-action="edit" data-user-id="${user.id}" title="Edit user">✏️</button>
+                <button class="btn-icon" data-action="delete" data-user-id="${user.id}" title="Delete user">🗑️</button>
             </td>
         `;
         userTableBody.appendChild(row);
@@ -490,7 +621,7 @@ function renderAuditLogs(logs) {
         item.innerHTML = `
             <div class="activity-icon">🔑</div>
             <div class="activity-content">
-                <div class="activity-text">${actor} ${label}</div>
+                <div class="activity-text">${escapeHtml(actor)} ${escapeHtml(label)}</div>
                 <div class="activity-time">${time}</div>
             </div>
         `;
@@ -503,6 +634,7 @@ function formatAuditAction(action, metadata) {
     if (action === 'login') return 'logged in';
     if (action === 'user.create') return `created user${target}`;
     if (action === 'user.update') return `updated user${target}`;
+    if (action === 'user.delete') return `deleted user${target}`;
     if (action === 'user.reset_password') return `reset password for${target}`;
     return action.replace(/_/g, ' ');
 }
@@ -524,9 +656,9 @@ function renderAlerts(items) {
 
         const row = document.createElement('tr');
         row.innerHTML = `
-            <td>${timestamp}</td>
+            <td>${escapeHtml(timestamp)}</td>
             <td>${subsystem}</td>
-            <td>${faultType}</td>
+            <td>${escapeHtml(faultType)}</td>
             <td>${confidence}</td>
             <td><span class="badge ${badgeClass}">${status}</span></td>
         `;
@@ -550,14 +682,20 @@ function renderFaultLog(items) {
     filtered.slice(0, 20).forEach(item => {
         const row = document.createElement('tr');
         const badgeClass = statusBadgeClass(item.prediction || 'NORMAL');
+        const subsystem = (item.subsystem || '--').toUpperCase();
+        const model = (item.metrics && item.metrics.dominant)
+            ? `healthy(${item.metrics.dominant})`
+            : (item.modelVersion || '--');
+        const top = item.metrics?.top_signals?.join(', ');
+        const titleAttr = top ? ` title="${top.replace(/"/g, '&quot;')}"` : '';
         row.innerHTML = `
-            <td>${item.dateStr || '--'}</td>
-            <td>${item.filename || '--'}</td>
-            <td>${item.periodLabel || '--'}</td>
+            <td>${escapeHtml(item.dateStr || '--')}</td>
+            <td>${escapeHtml(item.filename || '--')}</td>
             <td>${item.recordCount ?? '--'}</td>
+            <td>${subsystem}</td>
             <td><span class="badge ${badgeClass}">${item.prediction || 'NORMAL'}</span></td>
+            <td>${model}</td>
             <td>${item.confidence || '--'}%</td>
-            <td>${item.rul ?? '--'}</td>
         `;
         faultLogBody.appendChild(row);
     });
@@ -568,114 +706,13 @@ function updateFaultStats(items) {
 
     const total = items.length;
     const faults = items.filter(item => item.prediction === 'FAULT').length;
-    const warnings = items.filter(item => item.prediction === 'WARNING').length;
     const normals = items.filter(item => item.prediction === 'NORMAL').length;
 
     if (criticalFaults) criticalFaults.textContent = faults.toString();
-    if (warningFaults) warningFaults.textContent = warnings.toString();
     if (totalAnalyses) totalAnalyses.textContent = total.toString();
     if (normalOps) normalOps.textContent = normals.toString();
 }
 
-function updateDashboardKPIs(items) {
-    if (!Array.isArray(items) || items.length === 0) {
-        if (anomalyRate) anomalyRate.textContent = '0.00';
-        if (anomalyTrend) {
-            anomalyTrend.textContent = '▼ 0.00%';
-            anomalyTrend.className = 'trend-indicator down';
-        }
-        if (anomalyDesc) anomalyDesc.textContent = 'No data to analyze';
-        if (rulValue) rulValue.textContent = '--';
-        if (rulTrend) {
-            rulTrend.textContent = '▲ 0%';
-            rulTrend.className = 'trend-indicator up';
-        }
-        if (rulDesc) rulDesc.textContent = 'Requires data for prediction';
-        if (lastAnalysisValue) lastAnalysisValue.textContent = 'Never';
-        if (lastAnalysisDesc) lastAnalysisDesc.textContent = 'No analysis performed';
-        return;
-    }
-
-    const latest = items[0];
-    const previous = items[1];
-    const latestAnomaly = normalizePercent(latest.anomalyRate ?? 0);
-    const prevAnomaly = previous ? normalizePercent(previous.anomalyRate ?? 0) : latestAnomaly;
-    const anomalyDelta = latestAnomaly - prevAnomaly;
-
-    if (anomalyRate) anomalyRate.textContent = latestAnomaly.toFixed(2);
-    if (anomalyTrend) setTrend(anomalyTrend, anomalyDelta);
-    if (anomalyDesc) {
-        anomalyDesc.textContent = latest.prediction
-            ? `Latest: ${latest.prediction}`
-            : 'Latest analysis available';
-    }
-
-    if (rulValue) rulValue.textContent = typeof latest.rul === 'number' ? latest.rul.toString() : '--';
-    if (rulTrend) {
-        const prevRul = previous && typeof previous.rul === 'number' ? previous.rul : latest.rul;
-        const rulDelta = (latest.rul ?? 0) - (prevRul ?? 0);
-        setTrend(rulTrend, rulDelta, true);
-    }
-    if (rulDesc) {
-        const faultLabel = latest.faultType ? ` • ${latest.faultType}` : '';
-        rulDesc.textContent = latest.prediction
-            ? `Prediction: ${latest.prediction}${faultLabel}`
-            : 'Prediction available';
-    }
-
-    if (lastAnalysisValue) lastAnalysisValue.textContent = formatTimestamp(latest.uploadedAt || latest.dateStr || '');
-    if (lastAnalysisDesc) {
-        const subsystem = latest.subsystem ? latest.subsystem.toUpperCase() : 'Unknown';
-        const period = latest.periodLabel || latest.period || 'Window';
-        lastAnalysisDesc.textContent = `${subsystem} • ${period}`;
-    }
-}
-
-function updateOverviewCharts(items) {
-    if (!Array.isArray(items) || items.length === 0) {
-        if (rulChartOverlay) rulChartOverlay.style.display = 'flex';
-        if (faultChartOverlay) faultChartOverlay.style.display = 'flex';
-        if (rulChart) {
-            rulChart.data.labels = [];
-            rulChart.data.datasets[0].data = [];
-            rulChart.update('none');
-        }
-        if (faultChart) {
-            faultChart.data.labels = [];
-            faultChart.data.datasets[0].data = [];
-            faultChart.update('none');
-        }
-        return;
-    }
-
-    const ordered = items.slice(0, 30).reverse();
-    const rulLabels = ordered.map(item => formatShortDate(item.uploadedAt || item.dateStr || ''));
-    const rulData = ordered.map(item => (typeof item.rul === 'number' ? item.rul : 0));
-
-    if (rulChart) {
-        rulChart.data.labels = rulLabels;
-        rulChart.data.datasets[0].data = rulData;
-        rulChart.update('none');
-    }
-    if (rulChartOverlay) rulChartOverlay.style.display = rulData.length ? 'none' : 'flex';
-
-    const faultsBySubsystem = {};
-    items.forEach(item => {
-        if (item.prediction !== 'FAULT') return;
-        const key = (item.subsystem || 'unknown').toUpperCase();
-        faultsBySubsystem[key] = (faultsBySubsystem[key] || 0) + 1;
-    });
-
-    const faultLabels = Object.keys(faultsBySubsystem);
-    const faultData = faultLabels.map(label => faultsBySubsystem[label]);
-
-    if (faultChart) {
-        faultChart.data.labels = faultLabels;
-        faultChart.data.datasets[0].data = faultData;
-        faultChart.update('none');
-    }
-    if (faultChartOverlay) faultChartOverlay.style.display = faultData.length ? 'none' : 'flex';
-}
 
 function normalizePercent(value) {
     const num = typeof value === 'number' ? value : Number(value || 0);
@@ -695,14 +732,6 @@ function setTrend(element, delta, isAbsolute) {
         element.className = 'trend-indicator';
         element.textContent = `• 0${isAbsolute ? '' : '.00%'} `;
     }
-}
-
-function formatShortDate(value) {
-    const parsed = new Date(value);
-    if (Number.isNaN(parsed.getTime())) {
-        return value || '--';
-    }
-    return parsed.toLocaleDateString();
 }
 
 function statusBadgeClass(status) {
@@ -782,6 +811,7 @@ function navigateToPage(page) {
     if (pageTitle) {
         if (page === 'dashboard') pageTitle.textContent = 'Dashboard Overview';
         else if (page === 'fault-insights') pageTitle.textContent = 'Fault Insights';
+        else if (page === 'data-upload') pageTitle.textContent = 'Data Upload';
         else if (page === 'user-management') pageTitle.textContent = 'User Management';
         else pageTitle.textContent = 'Dashboard Overview';
     }
@@ -909,7 +939,7 @@ function handleTelemetryMessage(payloadText) {
     const seq = typeof payload.seq === 'number' ? payload.seq : null;
 
     AppState.lastMessageAt[subsystem] = Date.now();
-    updateMeta(subsystem, ts, seq, sourceId);
+    updateMeta(subsystem, ts, sourceId);
 
     const tsMillis = Date.parse(ts);
     const nowMillis = Number.isNaN(tsMillis) ? Date.now() : tsMillis;
@@ -977,11 +1007,10 @@ function updateSignalOptions(subsystem) {
     }
 }
 
-function updateMeta(subsystem, ts, seq, sourceId) {
+function updateMeta(subsystem, ts, sourceId) {
     const meta = subsystem === 'llz' ? llzMeta : gpMeta;
     const timeLabel = formatTimestamp(ts);
-    const seqLabel = seq !== null ? `seq ${seq}` : 'seq --';
-    meta.textContent = `Last: ${timeLabel} • ${seqLabel} • ${sourceId}`;
+    meta.textContent = `Last: ${timeLabel} • ${sourceId}`;
 }
 
 function updateCharts() {
@@ -1014,8 +1043,6 @@ function updateSubsystemChart(subsystem, chart, overlay, select) {
 function initializeCharts() {
     llzChart = createLineChart('llzLiveChart', '#004E89');
     gpChart = createLineChart('gpLiveChart', '#00B4D8');
-    rulChart = createTrendChart('rulChart', '#16A34A');
-    faultChart = createDoughnutChart('faultChart');
 }
 
 function createLineChart(canvasId, color) {
@@ -1055,66 +1082,6 @@ function createLineChart(canvasId, color) {
     });
 }
 
-function createTrendChart(canvasId, color) {
-    const ctx = document.getElementById(canvasId).getContext('2d');
-    return new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: [],
-            datasets: [
-                {
-                    label: 'RUL (hours)',
-                    data: [],
-                    borderColor: color,
-                    backgroundColor: 'rgba(22, 163, 74, 0.08)',
-                    fill: true,
-                    tension: 0.25,
-                    pointRadius: 2
-                }
-            ]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            animation: false,
-            plugins: {
-                legend: { display: false }
-            },
-            scales: {
-                x: {
-                    ticks: { maxTicksLimit: 6 }
-                },
-                y: {
-                    ticks: { maxTicksLimit: 6 }
-                }
-            }
-        }
-    });
-}
-
-function createDoughnutChart(canvasId) {
-    const ctx = document.getElementById(canvasId).getContext('2d');
-    return new Chart(ctx, {
-        type: 'doughnut',
-        data: {
-            labels: [],
-            datasets: [
-                {
-                    data: [],
-                    backgroundColor: ['#004E89', '#00B4D8', '#16A34A', '#F59E0B']
-                }
-            ]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            animation: false,
-            plugins: {
-                legend: { position: 'bottom' }
-            }
-        }
-    });
-}
 
 function setConnectionState(state) {
     AppState.connectionState = state;
@@ -1159,10 +1126,6 @@ function setConnectionState(state) {
     if (systemBanner) systemBanner.className = `system-banner ${current.className}`;
     if (bannerTitle) bannerTitle.textContent = current.bannerTitle;
     if (bannerMessage) bannerMessage.textContent = current.bannerMessage;
-
-    if (systemStatusValue) systemStatusValue.textContent = current.cardValue;
-    if (systemStatusDesc) systemStatusDesc.textContent = current.cardDesc;
-    if (statusCard) statusCard.className = `status-card ${current.className}`;
 }
 
 function updateCoverageStatus() {
@@ -1195,7 +1158,7 @@ function formatTimestamp(ts) {
     if (Number.isNaN(parsed.getTime())) {
         return ts;
     }
-    return parsed.toLocaleString();
+    return `${UAE_DATE_TIME_FORMATTER.format(parsed)} GST`;
 }
 
 function formatTimeOnly(ts) {
@@ -1203,7 +1166,7 @@ function formatTimeOnly(ts) {
     if (Number.isNaN(parsed.getTime())) {
         return '--:--:--';
     }
-    return parsed.toLocaleTimeString();
+    return UAE_TIME_FORMATTER.format(parsed);
 }
 
 window.addEventListener('beforeunload', () => {
@@ -1215,3 +1178,186 @@ window.addEventListener('beforeunload', () => {
 });
 
 document.addEventListener('DOMContentLoaded', initialize);
+
+// --- File Upload Logic ---
+function showToast(message, type = 'info') {
+    const container = document.getElementById('toastContainer');
+    if (!container) return;
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+    toast.style.padding = '1rem';
+    toast.style.margin = '0.5rem';
+    toast.style.borderRadius = '4px';
+    toast.style.boxShadow = '0 2px 5px rgba(0,0,0,0.2)';
+    toast.style.color = '#fff';
+    toast.style.background = type === 'error' ? '#EF4444' : type === 'success' ? '#10B981' : '#00B4D8';
+    toast.textContent = message;
+    container.appendChild(toast);
+    setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transition = 'opacity 0.3s ease';
+        setTimeout(() => toast.remove(), 300);
+    }, 3000);
+}
+
+function initUploadPageEvents() {
+    const fileInput = document.getElementById('fileUploadInput');
+    const dropzone = document.getElementById('uploadDropzone');
+    const selectedFileName = document.getElementById('selectedFileName');
+    const configCard = document.getElementById('uploadConfigCard');
+    const cancelBtn = document.getElementById('cancelUploadBtn');
+    const submitBtn = document.getElementById('submitUploadBtn');
+
+    let currentSelectedFile = null;
+
+    if (!fileInput || !dropzone) return;
+
+    const handleFile = (file) => {
+        if (!file) return;
+        if (!file.name.toLowerCase().endsWith('.log')) {
+            showToast('Please select a valid .log file', 'error');
+            return;
+        }
+        currentSelectedFile = file;
+        selectedFileName.textContent = file.name;
+        configCard.style.display = 'block';
+        document.getElementById('uploadResultCard').style.display = 'none';
+    };
+
+    fileInput.addEventListener('change', (e) => {
+        handleFile(e.target.files[0]);
+    });
+
+    dropzone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropzone.style.borderColor = '#00B4D8';
+        dropzone.style.backgroundColor = 'rgba(0, 180, 216, 0.05)';
+    });
+
+    dropzone.addEventListener('dragleave', (e) => {
+        e.preventDefault();
+        dropzone.style.borderColor = 'var(--color-border)';
+        dropzone.style.backgroundColor = 'var(--color-surface)';
+    });
+
+    dropzone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropzone.style.borderColor = 'var(--color-border)';
+        dropzone.style.backgroundColor = 'var(--color-surface)';
+        if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+            handleFile(e.dataTransfer.files[0]);
+        }
+    });
+
+    if (cancelBtn) {
+        cancelBtn.addEventListener('click', () => {
+            currentSelectedFile = null;
+            fileInput.value = '';
+            configCard.style.display = 'none';
+        });
+    }
+
+    if (submitBtn) {
+        submitBtn.addEventListener('click', async () => {
+            if (!currentSelectedFile) return;
+
+            // UI updates
+            submitBtn.disabled = true;
+            cancelBtn.disabled = true;
+            document.getElementById('uploadProgressContainer').style.display = 'flex';
+            document.getElementById('uploadResultCard').style.display = 'none';
+
+            try {
+                const formData = new FormData();
+                formData.append('file', currentSelectedFile);
+
+                // Temporary override for authFetch headers to avoid passing global 'application/json' 
+                // when we need FormData to set its own multipart/form-data boundary.
+                const headers = { 'Authorization': `Bearer ${AppState.token}` };
+
+                const response = await fetch(`${API_BASE}/v1/uploads`, {
+                    method: 'POST',
+                    headers: headers,
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    const err = await response.json().catch(() => ({}));
+                    throw new Error(err.detail || 'Failed to upload file');
+                }
+
+                const result = await response.json();
+                renderUploadResult(result);
+                loadHistory(); // Reload table after new successful upload
+            } catch (error) {
+                showToast(error.message || 'Error uploading file', 'error');
+            } finally {
+                submitBtn.disabled = false;
+                cancelBtn.disabled = false;
+                document.getElementById('uploadProgressContainer').style.display = 'none';
+                currentSelectedFile = null;
+                fileInput.value = '';
+                configCard.style.display = 'none';
+            }
+        });
+    }
+}
+
+function renderUploadResult(uploadResponse) {
+    const resultCard = document.getElementById('uploadResultCard');
+    const resIcon = document.getElementById('resIcon');
+    const resPrediction = document.getElementById('resPrediction');
+    const resConfidence = document.getElementById('resConfidence');
+    const resRecords = document.getElementById('resRecords');
+    const resModel = document.getElementById('resModel');
+    const resIssuesContainer = document.getElementById('resIssuesContainer');
+    const resIssuesList = document.getElementById('resIssuesList');
+
+    if (!resultCard || !uploadResponse) return;
+
+    const mlNode = uploadResponse.ml || {};
+    const feats = uploadResponse.features || {};
+
+    const pred = mlNode.prediction || 'NORMAL';
+    let confVal = Number(mlNode.confidence || 0);
+    if (confVal <= 1.0 && confVal > 0) confVal *= 100;
+    const conf = isNaN(confVal) ? '--' : confVal.toFixed(1);
+    const numRecords = feats.lines ?? '--';
+    const dominantModel = mlNode.metrics ? (mlNode.metrics.dominant || mlNode.model_version) : mlNode.model_version;
+    const modelStr = dominantModel || '--';
+    const isFault = pred === 'FAULT';
+
+    if (isFault) {
+        resIcon.textContent = '⚠️';
+        resIcon.className = 'fault-stat-icon critical';
+        resIcon.style.color = '#EF4444';
+        resPrediction.innerHTML = `<span class="badge badge-critical" style="font-size: 1.1em; background: rgba(239, 68, 68, 0.1); color: #EF4444;">FAULT</span>`;
+    } else {
+        resIcon.textContent = '✅';
+        resIcon.className = 'fault-stat-icon success';
+        resIcon.style.color = '#10B981';
+        resPrediction.innerHTML = `<span class="badge badge-success" style="font-size: 1.1em; background: rgba(16, 185, 129, 0.1); color: #10B981;">NORMAL</span>`;
+    }
+
+    const subsystemStr = uploadResponse.subsystem || 'Unknown';
+    resConfidence.textContent = conf;
+    resRecords.textContent = numRecords;
+    resModel.textContent = `Processing Pipeline: ${subsystemStr} Model (${modelStr})`;
+
+    const issuesArr = mlNode.issues || [];
+    if (issuesArr.length > 0) {
+        resIssuesContainer.style.display = 'block';
+        resIssuesList.innerHTML = issuesArr.map(ix => {
+            return `<li style="margin-bottom: 0.5rem;">
+                <strong>${escapeHtml(ix.type || 'Issue')}:</strong> ${escapeHtml(ix.description || '')} 
+                <br/><small style="color: #00B4D8;">${escapeHtml(ix.recommendation || '')}</small>
+            </li>`;
+        }).join('');
+    } else {
+        resIssuesContainer.style.display = 'none';
+        resIssuesList.innerHTML = '';
+    }
+
+    resultCard.style.display = 'block';
+    showToast('Analysis complete', 'success');
+}

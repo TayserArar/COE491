@@ -592,6 +592,85 @@ body {
     color: #065F46;
 }
 
+/* Month selector row inside Live Telemetry card */
+.month-selector-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 0 14px;
+    border-bottom: 1px solid var(--neutral-100);
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+}
+
+.month-icon {
+    color: var(--neutral-400);
+    flex-shrink: 0;
+}
+
+.month-label {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--neutral-600);
+    white-space: nowrap;
+}
+
+.month-select {
+    padding: 6px 10px;
+    border: 1px solid var(--neutral-300);
+    border-radius: var(--border-radius);
+    font-size: 13px;
+    color: var(--neutral-800);
+    background: white;
+    cursor: pointer;
+    transition: border-color 0.2s;
+    min-width: 160px;
+}
+
+.month-select:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 2px rgba(0, 78, 137, 0.1);
+}
+
+.btn-month-apply {
+    padding: 6px 16px;
+    background: var(--primary-color);
+    color: white;
+    border: none;
+    border-radius: var(--border-radius);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.2s;
+    white-space: nowrap;
+}
+
+.btn-month-apply:hover {
+    background: var(--primary-light);
+}
+
+.btn-month-apply:disabled {
+    background: var(--neutral-300);
+    cursor: not-allowed;
+}
+
+.month-status-msg {
+    font-size: 12px;
+    color: var(--neutral-500);
+    transition: color 0.3s;
+}
+
+.month-status-msg.success {
+    color: var(--success-color);
+    font-weight: 500;
+}
+
+.month-status-msg.error {
+    color: var(--danger-color);
+    font-weight: 500;
+}
+
 .coverage-segments {
     display: flex;
     gap: 12px;
@@ -1582,7 +1661,7 @@ body {
    ============================================ */
 .fault-stats-grid {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(3, 1fr);
     gap: 16px;
     margin-bottom: 24px;
 }
