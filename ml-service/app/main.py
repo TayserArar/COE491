@@ -20,6 +20,11 @@ from .healthy_inference import (
     score_window_ae,
     top_k_signals,
 )
+from .llz_multiclass_inference import (
+    LLZMulticlassBundle,
+    load_llz_multiclass_bundle,
+    predict_llz_multiclass,
+)
 
 app = FastAPI(title="ML Service", version="0.1")
 UAE_TZ = ZoneInfo("Asia/Dubai")
@@ -51,6 +56,10 @@ class ModelBundle:
 
 MODEL_BUNDLES: Dict[str, ModelBundle] = {}
 HEALTHY_BUNDLES: Dict[str, HealthyBundle] = {}
+LLZ_MULTICLASS_BUNDLE: Optional[LLZMulticlassBundle] = None
+
+# Per-subsystem inference modes (set at startup from env)
+INFERENCE_MODES: Dict[str, str] = {}
 
 
 def _normalize_subsystem(value: str) -> str:
@@ -141,67 +150,59 @@ def _load_bundle(
 
 @app.on_event("startup")
 def startup_load_models() -> None:
-    gp_model = os.getenv("MODEL_GP_PATH", "/app/models/lstm_gp.keras")
-    gp_labels = os.getenv("MODEL_GP_LABELS_PATH", "/app/models/lstm_gp_labels.npy")
-    gp_features = os.getenv("MODEL_GP_FEATURES_PATH", "/app/models/lstm_gp_features.json")
-    gp_mean = os.getenv("MODEL_GP_NORM_MEAN_PATH", "")
-    gp_std = os.getenv("MODEL_GP_NORM_STD_PATH", "")
-    llz_model = os.getenv("MODEL_LLZ_PATH", "/app/models/lstm_llz.keras")
-    llz_labels = os.getenv("MODEL_LLZ_LABELS_PATH", "/app/models/lstm_llz_labels.npy")
-    llz_features = os.getenv("MODEL_LLZ_FEATURES_PATH", "/app/models/lstm_llz_features.json")
-    llz_mean = os.getenv("MODEL_LLZ_NORM_MEAN_PATH", "")
-    llz_std = os.getenv("MODEL_LLZ_NORM_STD_PATH", "")
+    global LLZ_MULTICLASS_BUNDLE
 
-    gp_bundle = _load_bundle(
-        "GP",
-        gp_model,
-        gp_labels,
-        features_path=gp_features,
-        norm_mean_path=gp_mean or None,
-        norm_std_path=gp_std or None,
-    )
-    if gp_bundle:
-        MODEL_BUNDLES["GP"] = gp_bundle
+    # ── Per-subsystem inference modes ────────────────────────────────────────
+    llz_mode = os.getenv("LLZ_INFERENCE_MODE", "pt_multiclass").strip().lower()
+    gp_mode = os.getenv("GP_INFERENCE_MODE", "healthy_anomaly").strip().lower()
+    INFERENCE_MODES["LLZ"] = llz_mode
+    INFERENCE_MODES["GP"] = gp_mode
+    logger.info("Inference modes — LLZ: %s  GP: %s", llz_mode, gp_mode)
 
-    llz_bundle = _load_bundle(
-        "LLZ",
-        llz_model,
-        llz_labels,
-        features_path=llz_features,
-        norm_mean_path=llz_mean or None,
-        norm_std_path=llz_std or None,
-    )
-    if llz_bundle:
-        MODEL_BUNDLES["LLZ"] = llz_bundle
+    # ── GP: healthy AE/FC anomaly detection (unchanged) ───────────────────────
+    if gp_mode == "healthy_anomaly":
+        gp_ae = _choose_existing_path(
+            os.getenv("HEALTHY_GP_AE_PATH", "/app/models/healthy/gp_ae.pt"),
+            "/app/models/healthy/gp_lstm_ae.pt",
+        )
+        gp_fc = _choose_existing_path(
+            os.getenv("HEALTHY_GP_FC_PATH", "/app/models/healthy/gp_fc.pt"),
+            "/app/models/healthy/gp_lstm_fc.pt",
+        )
+        gp_scaler = os.getenv("HEALTHY_GP_SCALER_PATH", "/app/models/healthy/gp_scaler.npz")
+        gp_thr = os.getenv("HEALTHY_GP_THRESHOLDS_PATH", "/app/models/healthy/gp_thresholds.json")
+        gp_healthy = load_healthy_bundle("GP", gp_ae, gp_fc, gp_scaler, gp_thr)
+        if gp_healthy:
+            HEALTHY_BUNDLES["GP"] = gp_healthy
+            logger.info("GP healthy bundle loaded: %s", gp_healthy.version)
+        else:
+            logger.warning("GP healthy bundle could not be loaded — will fall through to heuristic")
+    else:
+        logger.warning("GP_INFERENCE_MODE=%s is unrecognised; supported: healthy_anomaly", gp_mode)
 
-    gp_ae = _choose_existing_path(
-        os.getenv("HEALTHY_GP_AE_PATH", "/app/models/healthy/gp_ae.pt"),
-        "/app/models/healthy/gp_lstm_ae.pt",
-    )
-    gp_fc = _choose_existing_path(
-        os.getenv("HEALTHY_GP_FC_PATH", "/app/models/healthy/gp_fc.pt"),
-        "/app/models/healthy/gp_lstm_fc.pt",
-    )
-    gp_scaler = os.getenv("HEALTHY_GP_SCALER_PATH", "/app/models/healthy/gp_scaler.npz")
-    gp_thr = os.getenv("HEALTHY_GP_THRESHOLDS_PATH", "/app/models/healthy/gp_thresholds.json")
-    llz_ae = _choose_existing_path(
-        os.getenv("HEALTHY_LLZ_AE_PATH", "/app/models/healthy/llz_ae.pt"),
-        "/app/models/healthy/llz_lstm_ae.pt",
-    )
-    llz_fc = _choose_existing_path(
-        os.getenv("HEALTHY_LLZ_FC_PATH", "/app/models/healthy/llz_fc.pt"),
-        "/app/models/healthy/llz_lstm_fc.pt",
-    )
-    llz_scaler = os.getenv("HEALTHY_LLZ_SCALER_PATH", "/app/models/healthy/llz_scaler.npz")
-    llz_thr = os.getenv("HEALTHY_LLZ_THRESHOLDS_PATH", "/app/models/healthy/llz_thresholds.json")
-
-    gp_healthy = load_healthy_bundle("GP", gp_ae, gp_fc, gp_scaler, gp_thr)
-    if gp_healthy:
-        HEALTHY_BUNDLES["GP"] = gp_healthy
-
-    llz_healthy = load_healthy_bundle("LLZ", llz_ae, llz_fc, llz_scaler, llz_thr)
-    if llz_healthy:
-        HEALTHY_BUNDLES["LLZ"] = llz_healthy
+    # ── LLZ: PyTorch multiclass classifier ───────────────────────────────────
+    if llz_mode == "pt_multiclass":
+        llz_model_pt = os.getenv(
+            "LLZ_MULTICLASS_MODEL_PATH", "/app/models/llz_multiclass/best_model_filtered.pt"
+        )
+        llz_artifacts = os.getenv(
+            "LLZ_MULTICLASS_ARTIFACTS_PATH", "/app/models/llz_multiclass/training_artifacts.json"
+        )
+        llz_scaler_jl = os.getenv(
+            "LLZ_MULTICLASS_SCALER_PATH", "/app/models/llz_multiclass/scaler.joblib"
+        )
+        llz_ft_jl = os.getenv(
+            "LLZ_MULTICLASS_FT_PATH", "/app/models/llz_multiclass/feature_transform.joblib"
+        )
+        LLZ_MULTICLASS_BUNDLE = load_llz_multiclass_bundle(
+            llz_model_pt, llz_artifacts, llz_scaler_jl, llz_ft_jl
+        )
+        if LLZ_MULTICLASS_BUNDLE:
+            logger.info("LLZ multiclass bundle loaded: %s", LLZ_MULTICLASS_BUNDLE.version)
+        else:
+            logger.warning("LLZ multiclass bundle could not be loaded — will fall through to heuristic")
+    else:
+        logger.warning("LLZ_INFERENCE_MODE=%s is unrecognised; supported: pt_multiclass", llz_mode)
 
 @app.get("/health")
 def health():
@@ -226,7 +227,23 @@ def health():
             "fc_threshold": bundle.fc_threshold,
             "has_scaler": True,
         }
-    return {"status": "ok", "models": models, "healthy_models": healthy_models}
+    llz_mc = None
+    if LLZ_MULTICLASS_BUNDLE is not None:
+        llz_mc = {
+            "version": LLZ_MULTICLASS_BUNDLE.version,
+            "num_classes": len(LLZ_MULTICLASS_BUNDLE.label_map),
+            "num_features": len(LLZ_MULTICLASS_BUNDLE.feature_columns),
+            "window_rows": LLZ_MULTICLASS_BUNDLE.window_rows,
+            "label_map": LLZ_MULTICLASS_BUNDLE.label_map,
+            "has_feature_transform": LLZ_MULTICLASS_BUNDLE.feature_transform is not None,
+        }
+    return {
+        "status": "ok",
+        "inference_modes": INFERENCE_MODES,
+        "models": models,
+        "healthy_models": healthy_models,
+        "llz_multiclass": llz_mc,
+    }
 
 
 def _parse_ts(value: str) -> Optional[datetime]:
@@ -482,7 +499,7 @@ def _predict_with_healthy(bundle: HealthyBundle, window: Optional[WindowData]) -
 
     fault_type = None
     if is_fault:
-        fault_type = "AE_RECON"
+        fault_type = "FAULT"
     top_signals = top_k_signals(ae_pf, bundle.signal_cols, k=3)
 
     issues: List[Dict[str, Any]] = []
@@ -587,20 +604,45 @@ def _predict_with_bundle(bundle: ModelBundle, window: Optional[WindowData]) -> O
 def predict(req: PredictRequest):
     t0 = time.perf_counter()
     subsystem = _normalize_subsystem(req.subsystem)
-    healthy_bundle = HEALTHY_BUNDLES.get(subsystem)
-    if healthy_bundle and req.window is not None:
-        healthy_result = _predict_with_healthy(healthy_bundle, req.window)
-        if healthy_result is not None:
-            elapsed = time.perf_counter() - t0
-            logger.info("Inference for %s (healthy) took %.3f seconds", subsystem, elapsed)
-            return healthy_result
+    mode = INFERENCE_MODES.get(subsystem, "")
 
-    model_bundle = MODEL_BUNDLES.get(subsystem)
-    model_result = _predict_with_bundle(model_bundle, req.window) if model_bundle else None
-    if model_result is not None:
-        elapsed = time.perf_counter() - t0
-        logger.info("Inference for %s (lstm) took %.3f seconds", subsystem, elapsed)
-        return model_result
+    # ── LLZ: always route to PyTorch multiclass bundle ───────────────────────
+    if subsystem == "LLZ":
+        if LLZ_MULTICLASS_BUNDLE is not None and req.window is not None:
+            result = predict_llz_multiclass(LLZ_MULTICLASS_BUNDLE, req.window)
+            if result is not None:
+                elapsed = time.perf_counter() - t0
+                logger.info("Inference for LLZ (pt_multiclass) took %.3f seconds", elapsed)
+                return result
+        # Fall through to heuristic if bundle not loaded or window absent
+
+    # ── GP: always route to healthy AE/FC bundle ─────────────────────────────
+    elif subsystem == "GP":
+        healthy_bundle = HEALTHY_BUNDLES.get("GP")
+        if healthy_bundle and req.window is not None:
+            healthy_result = _predict_with_healthy(healthy_bundle, req.window)
+            if healthy_result is not None:
+                elapsed = time.perf_counter() - t0
+                logger.info("Inference for GP (healthy_anomaly) took %.3f seconds", elapsed)
+                return healthy_result
+        # Fall through to heuristic if bundle not loaded
+
+    else:
+        # Unknown subsystem — try any available bundle
+        healthy_bundle = HEALTHY_BUNDLES.get(subsystem)
+        if healthy_bundle and req.window is not None:
+            healthy_result = _predict_with_healthy(healthy_bundle, req.window)
+            if healthy_result is not None:
+                elapsed = time.perf_counter() - t0
+                logger.info("Inference for %s (healthy) took %.3f seconds", subsystem, elapsed)
+                return healthy_result
+
+        model_bundle = MODEL_BUNDLES.get(subsystem)
+        model_result = _predict_with_bundle(model_bundle, req.window) if model_bundle else None
+        if model_result is not None:
+            elapsed = time.perf_counter() - t0
+            logger.info("Inference for %s (lstm) took %.3f seconds", subsystem, elapsed)
+            return model_result
 
     features = req.features or {}
 

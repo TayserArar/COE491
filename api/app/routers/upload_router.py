@@ -121,36 +121,69 @@ async def upload_file(
 
                 pred = ml_result.get("prediction", "NORMAL")
                 conf = float(ml_result.get("confidence", 0.0))
-                
+
                 res_obj = {
                     "ml": ml_result,
                     "start": start_ts,
                     "end": end_ts
                 }
-                
+
                 if pred == "FAULT":
                     fault_results.append(res_obj)
-                    # Early stop: if we encounter an anomaly, flag the file immediately and stop checking subsequent windows.
-                    break
+                    if subsystem == "GP":
+                        # GP uses binary anomaly detection — one fault window is enough signal.
+                        # Early-stop to avoid unnecessary inference on subsequent windows.
+                        break
+                    # LLZ uses multiclass — continue scanning all windows to find every fault class.
                 else:
                     normal_results.append(res_obj)
 
         if fault_results:
-            # Pick the fault window with the highest confidence
-            fault_results.sort(key=lambda x: float(x["ml"].get("confidence", 0.0)), reverse=True)
-            best_fault = fault_results[0]
-            ml = best_fault["ml"]
-            final_prediction = "FAULT"
-            highest_confidence = float(ml["confidence"])
-            overall_anomaly_rate = float(ml.get("anomaly_rate", 0.0))
-            model_version = ml.get("model_version", "stub-0.2")
-            metrics = ml.get("metrics", {})
-            
-            new_issues = ml.get("issues", [])
-            for issue in new_issues:
-                # Append the specific timestamp boundaries to the description
-                issue["description"] = f"{issue.get('description', '')} Time constraint between {best_fault['start']} and {best_fault['end']}."
-            issues = new_issues
+            if subsystem == "LLZ":
+                # De-duplicate by fault type, keeping highest-confidence window per class.
+                best_per_class: dict = {}
+                for res in fault_results:
+                    ft = res["ml"].get("fault_type") or "UNKNOWN"
+                    existing = best_per_class.get(ft)
+                    if existing is None or float(res["ml"].get("confidence", 0.0)) > float(existing["ml"].get("confidence", 0.0)):
+                        best_per_class[ft] = res
+
+                # Sort by confidence descending; the highest-confidence fault is the primary
+                sorted_faults = sorted(best_per_class.values(), key=lambda x: float(x["ml"].get("confidence", 0.0)), reverse=True)
+                best_fault = sorted_faults[0]
+                ml = best_fault["ml"]
+
+                final_prediction = "FAULT"
+                highest_confidence = float(ml["confidence"])
+                overall_anomaly_rate = float(ml.get("anomaly_rate", 0.0))
+                model_version = ml.get("model_version", "stub-0.2")
+                metrics = ml.get("metrics", {})
+
+                # Merge issues from ALL unique fault classes (not just the top one)
+                issues = []
+                for res in sorted_faults:
+                    for issue in res["ml"].get("issues", []):
+                        issue = dict(issue)
+                        issue["description"] = (
+                            f"{issue.get('description', '')} "
+                            f"[window {res['start']} \u2013 {res['end']}]"
+                        )
+                        issues.append(issue)
+            else:
+                # GP / other: single best fault window
+                fault_results.sort(key=lambda x: float(x["ml"].get("confidence", 0.0)), reverse=True)
+                best_fault = fault_results[0]
+                ml = best_fault["ml"]
+                final_prediction = "FAULT"
+                highest_confidence = float(ml["confidence"])
+                overall_anomaly_rate = float(ml.get("anomaly_rate", 0.0))
+                model_version = ml.get("model_version", "stub-0.2")
+                metrics = ml.get("metrics", {})
+
+                new_issues = ml.get("issues", [])
+                for issue in new_issues:
+                    issue["description"] = f"{issue.get('description', '')} Time constraint between {best_fault['start']} and {best_fault['end']}."
+                issues = new_issues
 
         elif normal_results:
             # All normal, return the first/lowest confidence normal one

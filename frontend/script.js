@@ -14,6 +14,10 @@ const AppState = {
     lastMessageAt: {
         llz: null,
         gp: null
+    },
+    lastBufferedMonth: {
+        llz: null,
+        gp: null
     }
 };
 
@@ -38,6 +42,11 @@ const UAE_TIME_FORMATTER = new Intl.DateTimeFormat('en-GB', {
     minute: '2-digit',
     second: '2-digit',
     hour12: false
+});
+const UAE_YEAR_MONTH_FORMATTER = new Intl.DateTimeFormat('en-GB', {
+    timeZone: UAE_TIME_ZONE,
+    year: 'numeric',
+    month: '2-digit'
 });
 const PREFERRED_SIGNAL = "MON1 CL DDM (\u00b5A)";
 const API_BASE = (() => {
@@ -666,6 +675,47 @@ function renderAlerts(items) {
     });
 }
 
+function parseTelemetryWindowFilename(filename) {
+    if (!filename) return null;
+    const match = String(filename).match(
+        /^telemetry-([a-z0-9]+)-(.+?)-(\d{4}-\d{2}-\d{2}T.+)\.json$/i
+    );
+    if (!match) return null;
+
+    const [, subsystem, startToken, endToken] = match;
+    const decodeToken = (token) => {
+        const parts = String(token).split('T');
+        if (parts.length !== 2) return token;
+        return `${parts[0]}T${parts[1].replace(/_/g, ':')}`;
+    };
+
+    return {
+        subsystem: subsystem.toUpperCase(),
+        startTs: decodeToken(startToken),
+        endTs: decodeToken(endToken),
+        raw: filename
+    };
+}
+
+function formatHistoryFilename(item) {
+    const raw = item?.filename || '';
+    const parsed = parseTelemetryWindowFilename(raw);
+    if (!parsed) {
+        return {
+            label: raw || '--',
+            title: raw || ''
+        };
+    }
+
+    const startLabel = formatTimestamp(parsed.startTs);
+    const endLabel = formatTimeOnly(parsed.endTs);
+
+    return {
+        label: `Live ${parsed.subsystem} window ${startLabel} to ${endLabel} GST`,
+        title: parsed.raw
+    };
+}
+
 function renderFaultLog(items) {
     if (!faultLogBody) return;
     if (!Array.isArray(items) || items.length === 0) {
@@ -683,6 +733,7 @@ function renderFaultLog(items) {
         const row = document.createElement('tr');
         const badgeClass = statusBadgeClass(item.prediction || 'NORMAL');
         const subsystem = (item.subsystem || '--').toUpperCase();
+        const filenameInfo = formatHistoryFilename(item);
         const model = (item.metrics && item.metrics.dominant)
             ? `healthy(${item.metrics.dominant})`
             : (item.modelVersion || '--');
@@ -690,7 +741,7 @@ function renderFaultLog(items) {
         const titleAttr = top ? ` title="${top.replace(/"/g, '&quot;')}"` : '';
         row.innerHTML = `
             <td>${escapeHtml(item.dateStr || '--')}</td>
-            <td>${escapeHtml(item.filename || '--')}</td>
+            <td title="${escapeHtml(filenameInfo.title)}">${escapeHtml(filenameInfo.label)}</td>
             <td>${item.recordCount ?? '--'}</td>
             <td>${subsystem}</td>
             <td><span class="badge ${badgeClass}">${item.prediction || 'NORMAL'}</span></td>
@@ -937,6 +988,18 @@ function handleTelemetryMessage(payloadText) {
     const ts = payload.ts || new Date().toISOString();
     const sourceId = payload.source_id || 'unknown';
     const seq = typeof payload.seq === 'number' ? payload.seq : null;
+    const yearMonth = getYearMonthKey(ts);
+
+    if (
+        yearMonth &&
+        AppState.lastBufferedMonth[subsystem] &&
+        AppState.lastBufferedMonth[subsystem] !== yearMonth
+    ) {
+        resetSubsystemLiveState(subsystem);
+    }
+    if (yearMonth) {
+        AppState.lastBufferedMonth[subsystem] = yearMonth;
+    }
 
     AppState.lastMessageAt[subsystem] = Date.now();
     updateMeta(subsystem, ts, sourceId);
@@ -986,6 +1049,10 @@ function updateSignalOptions(subsystem) {
             select.appendChild(option);
         }
     });
+
+    if (selectedSignal[subsystem] && !availableSignals[subsystem].has(selectedSignal[subsystem])) {
+        selectedSignal[subsystem] = null;
+    }
 
     if (!selectedSignal[subsystem]) {
         if (availableSignals[subsystem].has(PREFERRED_SIGNAL)) {
@@ -1167,6 +1234,31 @@ function formatTimeOnly(ts) {
         return '--:--:--';
     }
     return UAE_TIME_FORMATTER.format(parsed);
+}
+
+function getYearMonthKey(ts) {
+    const parsed = new Date(ts);
+    if (Number.isNaN(parsed.getTime())) {
+        return null;
+    }
+    const parts = UAE_YEAR_MONTH_FORMATTER.formatToParts(parsed);
+    const year = parts.find(part => part.type === 'year')?.value;
+    const month = parts.find(part => part.type === 'month')?.value;
+    if (!year || !month) {
+        return null;
+    }
+    return `${year}-${month}`;
+}
+
+function resetSubsystemLiveState(subsystem) {
+    buffers[subsystem] = {};
+    availableSignals[subsystem] = new Set();
+    selectedSignal[subsystem] = null;
+
+    const select = subsystem === 'llz' ? llzSignalSelect : gpSignalSelect;
+    if (select) {
+        select.innerHTML = '';
+    }
 }
 
 window.addEventListener('beforeunload', () => {

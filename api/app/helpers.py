@@ -1,9 +1,13 @@
 # api/app/helpers.py  –  Shared utility functions
 
+import csv
 import os
 import re
 from datetime import datetime
+from typing import Dict, Iterable, List, Optional
 from zoneinfo import ZoneInfo
+
+from shared.schemas import TelemetrySample
 
 UAE_TZ = ZoneInfo("Asia/Dubai")
 
@@ -55,20 +59,31 @@ def normalize_confidence(conf: float) -> float:
 
 
 def extract_fault_type(issues: object) -> str | None:
+    """Return the fault class label from the issues list/dict.
+
+    Handles the dict-with-items wrapper that some older responses use, as well
+    as a plain list.  Prefers the ``type`` key (set by both the healthy-model
+    path and the new LLZ multiclass path), falling back to ``label``.
+
+    For LLZ multiclass results the ``type`` key holds the *exact* class name
+    string (e.g. ``"ANTENNA_FAULT"``), so this function naturally passes it
+    through unchanged.
+    """
     if isinstance(issues, dict) and "items" in issues:
         issues = issues["items"]
-    if isinstance(issues, list) and issues:
-        first = issues[0]
-import csv
-import re
-from typing import Dict, Iterable, List, Optional
-from shared.schemas import TelemetrySample
+    if not isinstance(issues, list) or not issues:
+        return None
+    first = issues[0]
+    if not isinstance(first, dict):
+        return None
+    return first.get("type") or first.get("label") or None
+
 
 def _parse_timestamp(value: str) -> Optional[str]:
     text = value.strip()
     if not text:
         return None
-    
+
     try:
         dt = datetime.fromisoformat(text.replace(" ", "T"))
         return dt.replace(tzinfo=UAE_TZ).isoformat()
@@ -90,6 +105,7 @@ def _parse_timestamp(value: str) -> Optional[str]:
             continue
     return None
 
+
 def _convert_value(value: str) -> Optional[float]:
     text = (value or "").strip()
     if not text:
@@ -100,11 +116,12 @@ def _convert_value(value: str) -> Optional[float]:
     except ValueError:
         return None
 
+
 def iter_rows_from_bytes(file_bytes: bytes) -> Iterable[Dict[str, str]]:
     decoded = file_bytes.decode("latin-1", errors="ignore").splitlines()
     header: Optional[List[str]] = None
     data_lines = []
-    
+
     # Pass 1: find header
     for line in decoded:
         if "Timestamp" in line:
@@ -129,6 +146,7 @@ def iter_rows_from_bytes(file_bytes: bytes) -> Iterable[Dict[str, str]]:
             row = row + [""] * (len(header) - len(row))
         yield dict(zip(header, row))
 
+
 def build_message_samples(rows: Iterable[Dict[str, str]]) -> List[TelemetrySample]:
     samples = []
     for seq, row in enumerate(rows, start=1):
@@ -145,10 +163,11 @@ def build_message_samples(rows: Iterable[Dict[str, str]]) -> List[TelemetrySampl
             if numeric is None:
                 continue
             signals[key_name] = numeric
-        
+
         if signals:
             samples.append(TelemetrySample(ts=ts, seq=seq, signals=signals))
     return samples
+
 
 def simple_feature_extract(file_bytes: bytes) -> dict:
     """
@@ -173,6 +192,7 @@ def simple_feature_extract(file_bytes: bytes) -> dict:
         "anomaly_rate": anomaly_rate,
         "columns": columns,
     }
+
 
 def user_to_response(user) -> dict:
     from . import schemas

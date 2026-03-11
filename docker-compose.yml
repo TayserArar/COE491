@@ -73,22 +73,23 @@ services:
     build: ./ml-service
     environment:
       - TZ=Asia/Dubai
-      - MODEL_GP_PATH=/app/models/lstm_gp.keras
-      - MODEL_GP_LABELS_PATH=/app/models/lstm_gp_labels.npy
-      - MODEL_LLZ_PATH=/app/models/lstm_llz.keras
-      - MODEL_LLZ_LABELS_PATH=/app/models/lstm_llz_labels.npy
-      - MODEL_BINARY_THRESHOLD=0.5
+      # ── Per-subsystem inference modes ──────────────────────────────────────
+      - LLZ_INFERENCE_MODE=pt_multiclass
+      - GP_INFERENCE_MODE=healthy_anomaly
+      # ── LLZ: PyTorch multiclass bundle artifacts ────────────────────────────
+      - LLZ_MULTICLASS_MODEL_PATH=/app/models/llz_multiclass/best_model_filtered.pt
+      - LLZ_MULTICLASS_ARTIFACTS_PATH=/app/models/llz_multiclass/training_artifacts.json
+      - LLZ_MULTICLASS_SCALER_PATH=/app/models/llz_multiclass/scaler.joblib
+      - LLZ_MULTICLASS_FT_PATH=/app/models/llz_multiclass/feature_transform.joblib
+      # ── GP: healthy AE/FC anomaly detection (unchanged) ────────────────────
       - HEALTHY_GP_AE_PATH=/app/models/healthy/gp_ae.pt
       - HEALTHY_GP_FC_PATH=/app/models/healthy/gp_fc.pt
       - HEALTHY_GP_SCALER_PATH=/app/models/healthy/gp_scaler.npz
       - HEALTHY_GP_THRESHOLDS_PATH=/app/models/healthy/gp_thresholds.json
-      - HEALTHY_LLZ_AE_PATH=/app/models/healthy/llz_ae.pt
-      - HEALTHY_LLZ_FC_PATH=/app/models/healthy/llz_fc.pt
-      - HEALTHY_LLZ_SCALER_PATH=/app/models/healthy/llz_scaler.npz
-      - HEALTHY_LLZ_THRESHOLDS_PATH=/app/models/healthy/llz_thresholds.json
       - PYTHONPATH=/packages
     volumes:
       - ./shared:/packages/shared:ro
+      - ./ml-service/models/llz_multiclass:/app/models/llz_multiclass:ro
     ports:
       - "8001:8001"
     restart: unless-stopped
