@@ -1,0 +1,6 @@
+30L GP/
+30L LLZ/
+__pycache__/
+*.py[cod]
+.env
+mosquitto/config/passwordfile

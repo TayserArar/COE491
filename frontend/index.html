@@ -1,12 +1,16 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>DANS - ILS Predictive Maintenance Dashboard</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Roboto:wght@400;500;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Roboto:wght@400;500;700&family=JetBrains+Mono:wght@400;500;600&display=swap"
+        rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
 </head>
+
 <body>
     <!-- Login Screen -->
     <div id="loginScreen" class="login-container">
@@ -14,10 +18,10 @@
             <div class="login-header">
                 <div class="login-logo">
                     <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <rect width="48" height="48" rx="12" fill="#004E89"/>
-                        <path d="M24 10L14 26H34L24 10Z" fill="white" opacity="0.9"/>
-                        <path d="M24 18L18 28H30L24 18Z" fill="#00B4D8"/>
-                        <circle cx="24" cy="36" r="4" fill="white"/>
+                        <rect width="48" height="48" rx="12" fill="#004E89" />
+                        <path d="M24 10L14 26H34L24 10Z" fill="white" opacity="0.9" />
+                        <path d="M24 18L18 28H30L24 18Z" fill="#00B4D8" />
+                        <circle cx="24" cy="36" r="4" fill="white" />
                     </svg>
                 </div>
                 <h1>DANS ILS Monitor</h1>
@@ -39,11 +43,10 @@
                     </label>
                     <a href="#" class="forgot-link">Forgot password?</a>
                 </div>
+                <div id="loginError" class="login-error" aria-live="polite"></div>
                 <button type="submit" class="btn btn-primary">Sign In</button>
             </form>
-            <div class="demo-credentials">
-                <p>Demo: Any email/password to login</p>
-            </div>
+            <!-- Demo credentials removed for security -->
         </div>
     </div>
 
@@ -54,45 +57,60 @@
             <div class="sidebar-header">
                 <div class="logo">
                     <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <rect width="32" height="32" rx="8" fill="#004E89"/>
-                        <path d="M16 8L8 20H24L16 8Z" fill="white"/>
+                        <rect width="32" height="32" rx="8" fill="#004E89" />
+                        <path d="M16 8L8 20H24L16 8Z" fill="white" />
                     </svg>
                     <span>DANS ILS</span>
                 </div>
             </div>
-            
+
             <nav class="sidebar-nav">
                 <a href="#" class="nav-item active" data-page="dashboard">
-                    <svg class="nav-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <rect x="3" y="3" width="7" height="7" stroke="currentColor" stroke-width="2"/>
-                        <rect x="14" y="3" width="7" height="7" stroke="currentColor" stroke-width="2"/>
-                        <rect x="14" y="14" width="7" height="7" stroke="currentColor" stroke-width="2"/>
-                        <rect x="3" y="14" width="7" height="7" stroke="currentColor" stroke-width="2"/>
+                    <svg class="nav-icon" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                        xmlns="http://www.w3.org/2000/svg">
+                        <rect x="3" y="3" width="7" height="7" stroke="currentColor" stroke-width="2" />
+                        <rect x="14" y="3" width="7" height="7" stroke="currentColor" stroke-width="2" />
+                        <rect x="14" y="14" width="7" height="7" stroke="currentColor" stroke-width="2" />
+                        <rect x="3" y="14" width="7" height="7" stroke="currentColor" stroke-width="2" />
                     </svg>
                     <span>Dashboard</span>
                 </a>
-                <a href="#" class="nav-item" data-page="data-upload">
-                    <svg class="nav-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M21 15V19C21 19.5304 20.7893 20.0391 20.4142 20.4142C20.0391 20.7893 19.5304 21 19 21H5C4.46957 21 3.96086 20.7893 3.58579 20.4142C3.21071 20.0391 3 19.5304 3 19V15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                        <polyline points="17 8 12 3 7 8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                        <line x1="12" y1="3" x2="12" y2="15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                    </svg>
-                    <span>Data Upload</span>
-                </a>
                 <a href="#" class="nav-item" data-page="fault-insights">
-                    <svg class="nav-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                        <path d="M2 17L12 22L22 17" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                        <path d="M2 12L12 17L22 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <svg class="nav-icon" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                        xmlns="http://www.w3.org/2000/svg">
+                        <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="currentColor" stroke-width="2"
+                            stroke-linecap="round" stroke-linejoin="round" />
+                        <path d="M2 17L12 22L22 17" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                            stroke-linejoin="round" />
+                        <path d="M2 12L12 17L22 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                            stroke-linejoin="round" />
                     </svg>
                     <span>Fault Insights</span>
                 </a>
+                <a href="#" class="nav-item" data-page="data-upload">
+                    <svg class="nav-icon" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                        xmlns="http://www.w3.org/2000/svg">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" stroke="currentColor" stroke-width="2"
+                            stroke-linecap="round" stroke-linejoin="round" />
+                        <polyline points="17 8 12 3 7 8" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                            stroke-linejoin="round" />
+                        <line x1="12" y1="3" x2="12" y2="15" stroke="currentColor" stroke-width="2"
+                            stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
+                    <span>Data Upload</span>
+                </a>
                 <a href="#" class="nav-item" data-page="user-management">
-                    <svg class="nav-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M17 21V19C17 17.9391 16.5786 16.9217 15.8284 16.1716C15.0783 15.4214 14.0609 15 13 15H5C3.93913 15 2.92172 15.4214 2.17157 16.1716C1.42143 16.9217 1 17.9391 1 19V21" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                        <circle cx="9" cy="7" r="4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                        <path d="M23 21V19C23 17.9 22.5 17 21.7 16.3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                        <path d="M16 3.1C17.1 3.8 18 5.1 18 6.5C18 8.5 16 10 14 10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <svg class="nav-icon" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                        xmlns="http://www.w3.org/2000/svg">
+                        <path
+                            d="M17 21V19C17 17.9391 16.5786 16.9217 15.8284 16.1716C15.0783 15.4214 14.0609 15 13 15H5C3.93913 15 2.92172 15.4214 2.17157 16.1716C1.42143 16.9217 1 17.9391 1 19V21"
+                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                        <circle cx="9" cy="7" r="4" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                            stroke-linejoin="round" />
+                        <path d="M23 21V19C23 17.9 22.5 17 21.7 16.3" stroke="currentColor" stroke-width="2"
+                            stroke-linecap="round" stroke-linejoin="round" />
+                        <path d="M16 3.1C17.1 3.8 18 5.1 18 6.5C18 8.5 16 10 14 10" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
                     </svg>
                     <span>User Management</span>
                 </a>
@@ -103,8 +121,8 @@
                 <div class="system-state-card" id="sidebarSystemState">
                     <div class="state-icon idle">
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
-                            <path d="M12 6V12L16 14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                            <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" />
+                            <path d="M12 6V12L16 14" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
                         </svg>
                     </div>
                     <div class="state-info">
@@ -113,13 +131,17 @@
                     </div>
                 </div>
             </div>
-            
+
             <div class="sidebar-footer">
                 <button id="logoutBtn" class="logout-btn">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M9 21H5C4.46957 21 3.96086 20.7893 3.58579 20.4142C3.21071 20.0391 3 19.5304 3 19V5C3 4.46957 3.21071 3.96086 3.58579 3.58579C3.96086 3.21071 4.46957 3 5 3H9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                        <polyline points="16 17 21 12 16 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                        <line x1="21" y1="12" x2="9" y2="12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path
+                            d="M9 21H5C4.46957 21 3.96086 20.7893 3.58579 20.4142C3.21071 20.0391 3 19.5304 3 19V5C3 4.46957 3.21071 3.96086 3.58579 3.58579C3.96086 3.21071 4.46957 3 5 3H9"
+                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                        <polyline points="16 17 21 12 16 7" stroke="currentColor" stroke-width="2"
+                            stroke-linecap="round" stroke-linejoin="round" />
+                        <line x1="21" y1="12" x2="9" y2="12" stroke="currentColor" stroke-width="2"
+                            stroke-linecap="round" stroke-linejoin="round" />
                     </svg>
                     <span>Logout</span>
                 </button>
@@ -134,7 +156,7 @@
                 <div class="top-bar-actions">
                     <div class="status-indicator" id="systemStatusIndicator">
                         <span class="status-dot idle"></span>
-                        <span id="systemStatusText">Awaiting Data Upload</span>
+                        <span id="systemStatusText">Disconnected</span>
                     </div>
                     <span class="user-info">DANS Engineer</span>
                 </div>
@@ -144,46 +166,44 @@
             <div class="page-content">
                 <!-- Dashboard Page -->
                 <div id="dashboardPage" class="page active">
-                    <!-- Date Navigation -->
-                    <div class="date-navigation">
-                        <button class="date-nav-btn" id="prevDateBtn">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <polyline points="15 18 9 12 15 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                            </svg>
-                        </button>
-                        <div class="current-date-display" id="dateDisplayContainer">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <rect x="3" y="4" width="18" height="18" rx="2" stroke="currentColor" stroke-width="2"/>
-                                <line x1="16" y1="2" x2="16" y2="6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                                <line x1="8" y1="2" x2="8" y2="6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                                <line x1="3" y1="10" x2="21" y2="10" stroke="currentColor" stroke-width="2"/>
-                            </svg>
-                            <span id="currentDateDisplay">Today</span>
-                            <input type="date" id="datePickerInput" class="date-picker-hidden">
-                        </div>
-                        <button class="date-nav-btn" id="nextDateBtn" disabled>
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <polyline points="9 18 15 12 9 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                            </svg>
-                        </button>
-                    </div>
 
-                    <!-- Day Coverage Indicator -->
+                    <!-- Day Coverage Indicator / Live Telemetry Card -->
                     <div class="day-coverage-card" id="dayCoverageCard">
                         <div class="coverage-header">
-                            <h3>Day Coverage</h3>
-                            <span class="coverage-badge" id="coverageBadge">No Data</span>
+                            <h3>Live Telemetry</h3>
+                            <span class="coverage-badge" id="coverageBadge">Disconnected</span>
                         </div>
+
+                        <!-- Month selector for demo streaming -->
+                        <div class="month-selector-row" id="monthSelectorRow">
+                            <svg class="month-icon" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                                xmlns="http://www.w3.org/2000/svg">
+                                <rect x="3" y="4" width="18" height="18" rx="2" stroke="currentColor"
+                                    stroke-width="2" />
+                                <line x1="16" y1="2" x2="16" y2="6" stroke="currentColor" stroke-width="2"
+                                    stroke-linecap="round" />
+                                <line x1="8" y1="2" x2="8" y2="6" stroke="currentColor" stroke-width="2"
+                                    stroke-linecap="round" />
+                                <line x1="3" y1="10" x2="21" y2="10" stroke="currentColor" stroke-width="2" />
+                            </svg>
+                            <label for="monthFilterSelect" class="month-label">Stream Month</label>
+                            <select id="monthFilterSelect" class="month-select">
+                                <option value="">All Months</option>
+                            </select>
+                            <button id="applyMonthBtn" class="btn-month-apply">Apply</button>
+                            <span id="monthStatusMsg" class="month-status-msg"></span>
+                        </div>
+
                         <div class="coverage-segments">
                             <div class="segment morning" id="morningSegment">
-                                <span class="segment-label">Morning (a)</span>
-                                <span class="segment-time">00:00 - 12:00</span>
-                                <span class="segment-status" id="morningStatus">Not Uploaded</span>
+                                <span class="segment-label">Localizer (LLZ)</span>
+                                <span class="segment-time">Topic: ils/llz/telemetry</span>
+                                <span class="segment-status" id="morningStatus">Waiting</span>
                             </div>
                             <div class="segment afternoon" id="afternoonSegment">
-                                <span class="segment-label">Afternoon (b)</span>
-                                <span class="segment-time">12:00 - 24:00</span>
-                                <span class="segment-status" id="afternoonStatus">Not Uploaded</span>
+                                <span class="segment-label">Glide Path (GP)</span>
+                                <span class="segment-time">Topic: ils/gp/telemetry</span>
+                                <span class="segment-status" id="afternoonStatus">Waiting</span>
                             </div>
                         </div>
                     </div>
@@ -191,101 +211,72 @@
                     <!-- System Status Banner -->
                     <div class="system-banner" id="systemBanner">
                         <div class="banner-icon">
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
-                                <path d="M12 8v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                                <circle cx="12" cy="16" r="1" fill="currentColor"/>
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none"
+                                xmlns="http://www.w3.org/2000/svg">
+                                <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" />
+                                <path d="M12 8v4" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                                <circle cx="12" cy="16" r="1" fill="currentColor" />
                             </svg>
                         </div>
                         <div class="banner-content">
-                            <h3 id="bannerTitle">System Idle - No Data Loaded</h3>
-                            <p id="bannerMessage">Upload a Glide Path (GP) datalog file to begin analysis. Navigate to "Data Upload" to get started.</p>
+                            <h3 id="bannerTitle">Live Telemetry Mode</h3>
+                            <p id="bannerMessage">Streaming LLZ/GP telemetry from the ingestion service. Keep this
+                                dashboard open to monitor live signals.</p>
                         </div>
-                        <button class="btn btn-outline" onclick="navigateToPage('data-upload')">Upload Data</button>
+                        <button class="btn btn-outline" id="connectTelemetryBtn">Reconnect</button>
                     </div>
 
-                    <!-- Status Cards -->
-                    <div class="status-grid">
-                        <div class="status-card" id="statusCard">
-                            <div class="status-header">
-                                <span class="status-title">System Status</span>
-                                <div class="status-icon-container" id="systemStatusIcon">
-                                    <svg class="status-icon" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
-                                        <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" fill="none"/>
-                                        <path d="M12 8v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                                        <circle cx="12" cy="16" r="1" fill="currentColor"/>
-                                    </svg>
+
+                    <!-- Live Telemetry Charts -->
+                    <div class="charts-row">
+                        <div class="chart-card chart-card-large">
+                            <div class="card-header">
+                                <div>
+                                    <h3>Localizer (LLZ) Live Signal</h3>
+                                    <span class="card-subtitle">Streaming telemetry</span>
+                                </div>
+                                <div class="header-controls">
+                                    <label for="llzSignalSelect" class="sr-only">LLZ signal</label>
+                                    <select id="llzSignalSelect" class="select-control"></select>
                                 </div>
                             </div>
-                            <div class="status-value" id="systemStatusValue">Idle</div>
-                            <div class="status-description" id="systemStatusDesc">Awaiting data upload</div>
+                            <div class="card-subtitle" id="llzMeta">Awaiting data...</div>
+                            <div class="chart-container-live">
+                                <canvas id="llzLiveChart"></canvas>
+                            </div>
+                            <div class="no-data-overlay" id="llzLiveOverlay">
+                                <span>No Live Data</span>
+                            </div>
                         </div>
 
-                        <div class="status-card">
-                            <div class="status-header">
-                                <span class="status-title">Anomaly Rate</span>
+                        <div class="chart-card chart-card-large">
+                            <div class="card-header">
+                                <div>
+                                    <h3>Glide Path (GP) Live Signal</h3>
+                                    <span class="card-subtitle">Streaming telemetry</span>
+                                </div>
+                                <div class="header-controls">
+                                    <label for="gpSignalSelect" class="sr-only">GP signal</label>
+                                    <select id="gpSignalSelect" class="select-control"></select>
+                                </div>
                             </div>
-                            <div class="status-value">
-                                <span id="anomalyRate">0.00</span>%
-                                <span class="trend-indicator down" id="anomalyTrend">▼ 0.00%</span>
+                            <div class="card-subtitle" id="gpMeta">Awaiting data...</div>
+                            <div class="chart-container-live">
+                                <canvas id="gpLiveChart"></canvas>
                             </div>
-                            <div class="status-description" id="anomalyDesc">No data to analyze</div>
-                        </div>
-
-                        <div class="status-card">
-                            <div class="status-header">
-                                <span class="status-title">Predicted RUL</span>
+                            <div class="no-data-overlay" id="gpLiveOverlay">
+                                <span>No Live Data</span>
                             </div>
-                            <div class="status-value">
-                                <span id="rulValue">--</span> hours
-                                <span class="trend-indicator up" id="rulTrend">▲ 0%</span>
-                            </div>
-                            <div class="status-description" id="rulDesc">Requires data for prediction</div>
-                        </div>
-
-                        <div class="status-card">
-                            <div class="status-header">
-                                <span class="status-title">Last Analysis</span>
-                            </div>
-                            <div class="status-value" id="lastAnalysisValue">Never</div>
-                            <div class="status-description" id="lastAnalysisDesc">No analysis performed</div>
                         </div>
                     </div>
 
                     <!-- Charts Section -->
-                    <div class="charts-row">
-                        <div class="chart-card chart-card-small">
-                            <div class="card-header">
-                                <h3>RUL Prediction Trend</h3>
-                                <span class="card-subtitle">Last 30 days</span>
-                            </div>
-                            <div class="chart-container-fixed">
-                                <canvas id="rulChart"></canvas>
-                            </div>
-                            <div class="no-data-overlay" id="rulChartOverlay">
-                                <span>No Data Available</span>
-                            </div>
-                        </div>
-
-                        <div class="chart-card chart-card-small">
-                            <div class="card-header">
-                                <h3>Fault Distribution</h3>
-                                <span class="card-subtitle">By subsystem</span>
-                            </div>
-                            <div class="chart-container-fixed chart-container-doughnut">
-                                <canvas id="faultChart"></canvas>
-                            </div>
-                            <div class="no-data-overlay" id="faultChartOverlay">
-                                <span>No Data Available</span>
-                            </div>
-                        </div>
-                    </div>
 
                     <!-- Alerts Table -->
                     <div class="table-card">
                         <div class="card-header">
                             <h3>Recent Alerts & Predictions</h3>
-                            <button class="btn btn-secondary">View All</button>
+                            <button id="viewAllAlertsBtn" class="btn btn-secondary">View All</button>
                         </div>
                         <div class="table-container">
                             <table class="data-table">
@@ -302,9 +293,14 @@
                                     <tr class="no-data-row">
                                         <td colspan="5">
                                             <div class="empty-state">
-                                                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                                    <path d="M14 2H6C5.46957 2 4.96086 2.21071 4.58579 2.58579C4.21071 2.96086 4 3.46957 4 4V20C4 20.5304 4.21071 21.0391 4.58579 21.4142C4.96086 21.7893 5.46957 22 6 22H18C18.5304 22 19.0391 21.7893 19.4142 21.4142C19.7893 21.0391 20 20.5304 20 20V8L14 2Z" stroke="#717182" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                                                    <path d="M14 2V8H20" stroke="#717182" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                                <svg width="48" height="48" viewBox="0 0 24 24" fill="none"
+                                                    xmlns="http://www.w3.org/2000/svg">
+                                                    <path
+                                                        d="M14 2H6C5.46957 2 4.96086 2.21071 4.58579 2.58579C4.21071 2.96086 4 3.46957 4 4V20C4 20.5304 4.21071 21.0391 4.58579 21.4142C4.96086 21.7893 5.46957 22 6 22H18C18.5304 22 19.0391 21.7893 19.4142 21.4142C19.7893 21.0391 20 20.5304 20 20V8L14 2Z"
+                                                        stroke="#717182" stroke-width="2" stroke-linecap="round"
+                                                        stroke-linejoin="round" />
+                                                    <path d="M14 2V8H20" stroke="#717182" stroke-width="2"
+                                                        stroke-linecap="round" stroke-linejoin="round" />
                                                 </svg>
                                                 <p>No alerts to display. Upload data to begin analysis.</p>
                                             </div>
@@ -318,207 +314,80 @@
 
                 <!-- Data Upload Page -->
                 <div id="dataUploadPage" class="page">
-                    <div class="upload-page-layout">
-                        <!-- Upload Section - Full Width Column -->
-                        <div class="upload-main-section">
-                            <div class="upload-card">
-                                <div class="upload-header">
-                                    <h2>Upload GP Datalog Files</h2>
-                                    <p>Upload NORMARC 7000 measurement log files for analysis. You can upload multiple files at once.</p>
-                                </div>
-                                
-                                <div class="upload-dropzone" id="uploadDropzone">
-                                    <div class="dropzone-content">
-                                        <div class="dropzone-icon">
-                                            <svg width="64" height="64" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                                <path d="M21 15V19C21 19.5304 20.7893 20.0391 20.4142 20.4142C20.0391 20.7893 19.5304 21 19 21H5C4.46957 21 3.96086 20.7893 3.58579 20.4142C3.21071 20.0391 3 19.5304 3 19V15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                                                <polyline points="17 8 12 3 7 8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                                                <line x1="12" y1="3" x2="12" y2="15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                                            </svg>
-                                        </div>
-                                        <h3>Drag & Drop your files here</h3>
-                                        <p>or click to browse</p>
-                                        <span class="file-types">Supported: .log, .txt, .csv files • Multiple files allowed</span>
-                                    </div>
-                                    <input type="file" id="fileInput" accept=".log,.txt,.csv" multiple hidden>
-                                </div>
+                    <div class="upload-card" id="uploadDropzone">
+                        <div class="upload-icon" style="margin-bottom: 1rem; color: #717182;">
+                            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                <polyline points="17 8 12 3 7 8"></polyline>
+                                <line x1="12" y1="3" x2="12" y2="15"></line>
+                            </svg>
+                        </div>
+                        <h3>Drag & Drop Log File Here</h3>
+                        <p style="margin-bottom: 1rem; color: #717182;">or click to browse from your computer</p>
+                        <input type="file" id="fileUploadInput" accept=".log" style="display: none;">
+                        <button class="btn btn-primary"
+                            onclick="document.getElementById('fileUploadInput').click()">Select File</button>
+                    </div>
 
-                                <!-- Files List Preview -->
-                                <div class="files-list-preview" id="filesListPreview" style="display: none;">
-                                    <div class="files-list-header">
-                                        <h4>Selected Files</h4>
-                                        <button class="btn-clear-all" id="clearAllFilesBtn">Clear All</button>
-                                    </div>
-                                    <div class="files-list" id="filesList"></div>
-                                    <div class="files-summary" id="filesSummary"></div>
-                                </div>
-
-                                <!-- Upload Actions -->
-                                <div class="upload-actions">
-                                    <button class="btn btn-primary" id="analyzeBtn" disabled>
-                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                            <path d="M22 11.08V12C21.9988 14.1564 21.3005 16.2547 20.0093 17.9818C18.7182 19.7089 16.9033 20.9725 14.8354 21.5839C12.7674 22.1952 10.5573 22.1219 8.53447 21.3746C6.51168 20.6273 4.78465 19.2461 3.61096 17.4371C2.43727 15.628 1.87979 13.4881 2.02168 11.3363C2.16356 9.18455 2.99721 7.13631 4.39828 5.49706C5.79935 3.85782 7.69279 2.71537 9.79619 2.24013C11.8996 1.7649 14.1003 1.98232 16.07 2.86" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                                            <polyline points="22 4 12 14.01 9 11.01" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                                        </svg>
-                                        Analyze Data
-                                    </button>
-                                </div>
+                    <div id="uploadConfigCard" class="table-card" style="display: none; margin-top: 1rem;">
+                        <div class="card-header">
+                            <h3>Upload Configuration</h3>
+                        </div>
+                        <div class="modal-form" style="padding: 1rem;">
+                            <div class="form-group">
+                                <label>Selected File:</label>
+                                <div id="selectedFileName" style="font-weight: 500; color: #00B4D8;">--</div>
                             </div>
-
-                            <!-- Processing Section -->
-                            <div class="processing-section" id="processingSection" style="display: none;">
-                                <div class="processing-card">
-                                    <div class="processing-animation">
-                                        <div class="spinner"></div>
-                                    </div>
-                                    <h3>Processing Data...</h3>
-                                    <p id="processingStatus">Initializing backend API...</p>
-                                    <div class="processing-steps">
-                                        <div class="step" id="step1">
-                                            <div class="step-indicator"></div>
-                                            <span>Uploading files to backend</span>
-                                        </div>
-                                        <div class="step" id="step2">
-                                            <div class="step-indicator"></div>
-                                            <span>Parsing measurement data</span>
-                                        </div>
-                                        <div class="step" id="step3">
-                                            <div class="step-indicator"></div>
-                                            <span>Running ML inference</span>
-                                        </div>
-                                        <div class="step" id="step4">
-                                            <div class="step-indicator"></div>
-                                            <span>Generating predictions</span>
-                                        </div>
-                                        <div class="step" id="step5">
-                                            <div class="step-indicator"></div>
-                                            <span>Storing results</span>
-                                        </div>
-                                    </div>
-                                </div>
+                            <div class="form-actions" style="margin-top: 1rem;">
+                                <button id="cancelUploadBtn" class="btn btn-outline">Cancel</button>
+                                <button id="submitUploadBtn" class="btn btn-primary">Run Analysis</button>
                             </div>
-
-                            <!-- Results Section -->
-                            <div class="results-section" id="resultsSection" style="display: none;">
-                                <div class="results-card">
-                                    <div class="results-header">
-                                        <div class="results-icon" id="resultsIcon"></div>
-                                        <h2 id="resultsTitle">Analysis Complete</h2>
-                                        <p id="resultsSubtitle">Prediction results are ready</p>
-                                    </div>
-
-                                    <div class="prediction-result" id="predictionResult">
-                                        <div class="prediction-badge" id="predictionBadge">
-                                            <span id="predictionStatus">Normal Operation</span>
-                                        </div>
-                                        <div class="prediction-details">
-                                            <div class="detail-row">
-                                                <span class="detail-label">Prediction Confidence:</span>
-                                                <span class="detail-value" id="predictionConfidence">95.2%</span>
-                                            </div>
-                                            <div class="detail-row">
-                                                <span class="detail-label">Records Analyzed:</span>
-                                                <span class="detail-value" id="recordsAnalyzed">28,950</span>
-                                            </div>
-                                            <div class="detail-row">
-                                                <span class="detail-label">Time Range:</span>
-                                                <span class="detail-value" id="timeRange">04:21 - 14:37</span>
-                                            </div>
-                                            <div class="detail-row">
-                                                <span class="detail-label">Estimated RUL:</span>
-                                                <span class="detail-value" id="estimatedRul">847 hours</span>
-                                            </div>
-                                            <div class="detail-row">
-                                                <span class="detail-label">Day Coverage:</span>
-                                                <span class="detail-value" id="dayCoverageResult">Partial (a only)</span>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <!-- Analysis Summary -->
-                                    <div class="analysis-summary">
-                                        <h4>Analysis Summary</h4>
-                                        <div class="summary-grid">
-                                            <div class="summary-item">
-                                                <span class="summary-label">Total Alarms</span>
-                                                <span class="summary-value" id="totalAlarms">0</span>
-                                            </div>
-                                            <div class="summary-item">
-                                                <span class="summary-label">Total Warnings</span>
-                                                <span class="summary-value" id="totalWarnings">0</span>
-                                            </div>
-                                            <div class="summary-item">
-                                                <span class="summary-label">Alarm Rate</span>
-                                                <span class="summary-value" id="alarmRate">0%</span>
-                                            </div>
-                                            <div class="summary-item">
-                                                <span class="summary-label">Data Quality</span>
-                                                <span class="summary-value" id="dataQuality">Good</span>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <!-- Detected Issues -->
-                                    <div class="detected-issues" id="detectedIssues">
-                                        <h4>Detected Issues</h4>
-                                        <div class="issues-list" id="issuesList"></div>
-                                    </div>
-
-                                    <div class="results-actions">
-                                        <button class="btn btn-secondary" onclick="resetUpload()">
-                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                                <polyline points="1 4 1 10 7 10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                                                <path d="M3.51 15C4.15839 16.8404 5.38734 18.4202 7.01166 19.5014C8.63598 20.5826 10.5677 21.1066 12.5157 20.9945C14.4637 20.8823 16.3226 20.1402 17.8121 18.8798C19.3017 17.6193 20.3413 15.9090 20.7742 14.0064C21.2072 12.1037 21.0101 10.1135 20.2126 8.33111C19.4152 6.54876 18.0605 5.07163 16.3528 4.12425C14.6451 3.17688 12.6769 2.81078 10.7447 3.08028C8.81245 3.34978 7.02091 4.24052 5.64 5.64L1 10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                                            </svg>
-                                            Upload More Files
-                                        </button>
-                                        <button class="btn btn-primary" onclick="navigateToPage('dashboard')">
-                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                                <rect x="3" y="3" width="7" height="7" stroke="currentColor" stroke-width="2"/>
-                                                <rect x="14" y="3" width="7" height="7" stroke="currentColor" stroke-width="2"/>
-                                                <rect x="14" y="14" width="7" height="7" stroke="currentColor" stroke-width="2"/>
-                                                <rect x="3" y="14" width="7" height="7" stroke="currentColor" stroke-width="2"/>
-                                            </svg>
-                                            View Dashboard
-                                        </button>
-                                    </div>
-                                </div>
+                            <div id="uploadProgressContainer"
+                                style="display: none; margin-top: 1rem; align-items: center;">
+                                <div class="system-spinner"></div>
+                                <span style="margin-left: 0.5rem;" id="uploadStatusText">Analyzing file...</span>
                             </div>
                         </div>
+                    </div>
 
-                        <!-- Upload History Sidebar -->
-                        <div class="upload-history-sidebar">
-                            <div class="history-card">
-                                <div class="card-header">
-                                    <h3>Upload History</h3>
-                                    <span class="history-count" id="historyCount">0 files</span>
+                    <div id="uploadResultCard" class="table-card" style="display: none; margin-top: 1rem;">
+                        <div class="card-header">
+                            <h3>Analysis Results</h3>
+                        </div>
+                        <div style="padding: 1rem;">
+                            <div class="fault-stats-grid" style="margin-bottom: 1rem;">
+                                <div class="fault-stat-card">
+                                    <div class="fault-stat-icon" id="resIcon">--</div>
+                                    <div>
+                                        <div class="fault-stat-value" id="resPrediction">--</div>
+                                        <span class="fault-stat-label">System State</span>
+                                    </div>
                                 </div>
-                                <div class="history-list" id="historyList">
-                                    <div class="empty-history">
-                                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                            <circle cx="12" cy="12" r="10" stroke="#717182" stroke-width="2"/>
-                                            <path d="M12 6v6l4 2" stroke="#717182" stroke-width="2" stroke-linecap="round"/>
-                                        </svg>
-                                        <p>No upload history yet</p>
+                                <div class="fault-stat-card">
+                                    <div class="fault-stat-icon info">🎯</div>
+                                    <div>
+                                        <div class="fault-stat-value"><span id="resConfidence">--</span>%</div>
+                                        <span class="fault-stat-label">Confidence</span>
+                                    </div>
+                                </div>
+                                <div class="fault-stat-card">
+                                    <div class="fault-stat-icon info">📝</div>
+                                    <div>
+                                        <div class="fault-stat-value" id="resRecords">--</div>
+                                        <span class="fault-stat-label">Records Analyzed</span>
                                     </div>
                                 </div>
                             </div>
 
-                            <!-- Simulation Notice -->
-                            <div class="simulation-notice">
-                                <h4>🔬 Simulation Mode</h4>
-                                <p><strong>Currently simulated:</strong></p>
-                                <ul>
-                                    <li>File upload to S3</li>
-                                    <li>ML inference (rule-based)</li>
-                                    <li>Database storage (localStorage)</li>
-                                </ul>
-                                <p><strong>Requires real backend:</strong></p>
-                                <ul>
-                                    <li>AWS SageMaker ML</li>
-                                    <li>Multi-user sync</li>
-                                    <li>Persistent cloud storage</li>
-                                </ul>
+                            <div style="margin-top: 1rem;">
+                                <h4>Model Pipeline</h4>
+                                <p id="resModel" style="color: #717182;">--</p>
+                            </div>
+
+                            <div id="resIssuesContainer" style="display: none; margin-top: 1.5rem;">
+                                <h4 style="color: #EF4444;">Detected Issues</h4>
+                                <ul id="resIssuesList" style="margin-top: 0.5rem; color: #717182;"></ul>
                             </div>
                         </div>
                     </div>
@@ -534,13 +403,7 @@
                                 <span class="fault-stat-label">Critical Faults</span>
                             </div>
                         </div>
-                        <div class="fault-stat-card">
-                            <div class="fault-stat-icon warning">⚡</div>
-                            <div>
-                                <div class="fault-stat-value" id="warningFaults">0</div>
-                                <span class="fault-stat-label">Warnings</span>
-                            </div>
-                        </div>
+
                         <div class="fault-stat-card">
                             <div class="fault-stat-icon info">📊</div>
                             <div>
@@ -557,19 +420,6 @@
                         </div>
                     </div>
 
-                    <div class="chart-card chart-card-small">
-                        <div class="card-header">
-                            <h3>Fault Trend Analysis</h3>
-                            <span class="card-subtitle">Last 7 days</span>
-                        </div>
-                        <div class="chart-container-fixed">
-                            <canvas id="faultHistoryChart"></canvas>
-                        </div>
-                        <div class="no-data-overlay" id="faultHistoryOverlay">
-                            <span>No Data Available</span>
-                        </div>
-                    </div>
-
                     <div class="table-card">
                         <div class="card-header">
                             <h3>Detailed Fault Log</h3>
@@ -577,7 +427,6 @@
                                 <select id="faultTypeFilter" class="select-control">
                                     <option value="all">All Types</option>
                                     <option value="fault">Faults Only</option>
-                                    <option value="warning">Warnings Only</option>
                                     <option value="normal">Normal Only</option>
                                 </select>
                             </div>
@@ -588,23 +437,26 @@
                                     <tr>
                                         <th>Date</th>
                                         <th>File</th>
-                                        <th>Period</th>
                                         <th>Records</th>
+                                        <th>Subsystem</th>
                                         <th>Status</th>
+                                        <th>Model</th>
                                         <th>Confidence</th>
-                                        <th>RUL</th>
                                     </tr>
                                 </thead>
                                 <tbody id="faultLogBody">
                                     <tr class="no-data-row">
                                         <td colspan="7">
                                             <div class="empty-state">
-                                                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                                    <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="#717182" stroke-width="2"/>
-                                                    <path d="M2 17L12 22L22 17" stroke="#717182" stroke-width="2"/>
-                                                    <path d="M2 12L12 17L22 12" stroke="#717182" stroke-width="2"/>
+                                                <svg width="48" height="48" viewBox="0 0 24 24" fill="none"
+                                                    xmlns="http://www.w3.org/2000/svg">
+                                                    <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="#717182"
+                                                        stroke-width="2" />
+                                                    <path d="M2 17L12 22L22 17" stroke="#717182" stroke-width="2" />
+                                                    <path d="M2 12L12 17L22 12" stroke="#717182" stroke-width="2" />
                                                 </svg>
-                                                <p>No fault data to display. Upload and analyze files to see results.</p>
+                                                <p>No fault data to display. Upload and analyze files to see results.
+                                                </p>
                                             </div>
                                         </td>
                                     </tr>
@@ -618,10 +470,13 @@
                 <div id="userManagementPage" class="page">
                     <div class="page-header">
                         <h2>User Management</h2>
-                        <button class="btn btn-primary">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <line x1="12" y1="5" x2="12" y2="19" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                                <line x1="5" y1="12" x2="19" y2="12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                        <button class="btn btn-primary" id="addUserBtn">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+                                xmlns="http://www.w3.org/2000/svg">
+                                <line x1="12" y1="5" x2="12" y2="19" stroke="currentColor" stroke-width="2"
+                                    stroke-linecap="round" />
+                                <line x1="5" y1="12" x2="19" y2="12" stroke="currentColor" stroke-width="2"
+                                    stroke-linecap="round" />
                             </svg>
                             Add User
                         </button>
@@ -631,28 +486,28 @@
                         <div class="user-stat-card">
                             <span class="stat-icon">👥</span>
                             <div>
-                                <div class="stat-value">2</div>
+                                <div class="stat-value" id="totalUsers">0</div>
                                 <span class="stat-label">Total Users</span>
                             </div>
                         </div>
                         <div class="user-stat-card">
                             <span class="stat-icon">✅</span>
                             <div>
-                                <div class="stat-value">2</div>
+                                <div class="stat-value" id="activeUsers">0</div>
                                 <span class="stat-label">Active Users</span>
                             </div>
                         </div>
                         <div class="user-stat-card">
                             <span class="stat-icon">👤</span>
                             <div>
-                                <div class="stat-value">1</div>
+                                <div class="stat-value" id="adminUsers">0</div>
                                 <span class="stat-label">Admins</span>
                             </div>
                         </div>
                         <div class="user-stat-card">
                             <span class="stat-icon">🕐</span>
                             <div>
-                                <div class="stat-value">1</div>
+                                <div class="stat-value" id="onlineUsers">0</div>
                                 <span class="stat-label">Online Now</span>
                             </div>
                         </div>
@@ -675,7 +530,7 @@
                                         <th>Actions</th>
                                     </tr>
                                 </thead>
-                                <tbody>
+                                <tbody id="userTableBody">
                                     <tr>
                                         <td>
                                             <div class="user-info-cell">
@@ -734,10 +589,61 @@
         </main>
     </div>
 
+    <div class="modal hidden" id="userModal" aria-hidden="true">
+        <div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="userModalTitle">
+            <div class="modal-header">
+                <h3 id="userModalTitle">Add User</h3>
+                <button class="modal-close" id="closeUserModal" aria-label="Close">×</button>
+            </div>
+            <form id="userForm" class="modal-form">
+                <div class="form-group">
+                    <label for="userName">Name</label>
+                    <input type="text" id="userName" required>
+                </div>
+                <div class="form-group">
+                    <label for="userEmail">Email</label>
+                    <input type="email" id="userEmail" required>
+                </div>
+                <div class="form-group">
+                    <label for="userRole">Role</label>
+                    <select id="userRole" class="select-control">
+                        <option value="engineer">Engineer</option>
+                        <option value="admin">Admin</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="userDepartment">Department</label>
+                    <input type="text" id="userDepartment" placeholder="Operations">
+                </div>
+                <div class="form-group" id="passwordGroup">
+                    <label for="userPassword">Password</label>
+                    <input type="password" id="userPassword" minlength="8">
+                </div>
+                <div class="form-group hidden" id="resetGroup">
+                    <label for="userResetPassword">Reset Password</label>
+                    <input type="password" id="userResetPassword" minlength="8"
+                        placeholder="Leave blank to keep unchanged">
+                </div>
+                <div class="form-footer">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="userActive" checked>
+                        <span>Active</span>
+                    </label>
+                </div>
+                <div id="userFormError" class="login-error" aria-live="polite"></div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-outline" id="cancelUserModal">Cancel</button>
+                    <button type="submit" class="btn btn-primary" id="saveUserBtn">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- Toast Notifications -->
     <div class="toast-container" id="toastContainer"></div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
     <script src="script.js"></script>
 </body>
+
 </html>

@@ -1,0 +1,8 @@
+{
+  "ae_threshold": 0.08811122179031372,
+  "fc_threshold": 0.015213930048048496,
+  "ae_percentile": 99.9,
+  "fc_percentile": 99.9,
+  "sampled_val_windows": 44544,
+  "sampled_test_windows": 44544
+}
