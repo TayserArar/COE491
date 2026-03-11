@@ -1,8 +1,8 @@
 services:
   # ── TLS reverse proxy ──────────────────────────────────────────────────────
   # Terminates HTTPS/WSS on :443 and proxies to the internal services.
-  # Run `bash tls/gen-certs.sh` (Linux/macOS) or `pwsh -File tls/gen-certs.ps1` (Windows)
-  # first to generate self-signed certs for dev.
+  # The proxy auto-generates a self-signed dev cert if none is provided.
+  # You can still mount your own cert/key to /etc/nginx/tls if needed.
   nginx-proxy:
     build: ./nginx
     ports:
@@ -11,8 +11,6 @@ services:
     volumes:
       - ./frontend:/usr/share/nginx/html:ro
       - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
-      - ./tls/cert.pem:/etc/nginx/tls/cert.pem:ro
-      - ./tls/key.pem:/etc/nginx/tls/key.pem:ro
     depends_on:
       - api
       - ingestion-service
@@ -109,9 +107,6 @@ services:
       - MQTT_PRODUCER_PASS=producer_pass
       - MQTT_INGESTION_USER=ingestion
       - MQTT_INGESTION_PASS=ingestion_pass
-    volumes:
-      - ./tls/cert.pem:/mosquitto/tls/cert.pem:ro
-      - ./tls/key.pem:/mosquitto/tls/key.pem:ro
     ports:
       - "1883:1883" # plain-text — internal Docker network (fake-ils, ingestion-service)
       - "8883:8883" # MQTTS — for external clients / real ILS hardware
