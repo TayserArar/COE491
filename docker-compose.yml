@@ -1,7 +1,8 @@
 services:
   # ── TLS reverse proxy ──────────────────────────────────────────────────────
   # Terminates HTTPS/WSS on :443 and proxies to the internal services.
-  # Run `bash tls/gen-certs.sh` first to generate self-signed certs for dev.
+  # Run `bash tls/gen-certs.sh` (Linux/macOS) or `pwsh -File tls/gen-certs.ps1` (Windows)
+  # first to generate self-signed certs for dev.
   nginx-proxy:
     build: ./nginx
     ports:

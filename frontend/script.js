@@ -49,10 +49,8 @@ const UAE_YEAR_MONTH_FORMATTER = new Intl.DateTimeFormat('en-GB', {
     month: '2-digit'
 });
 const PREFERRED_SIGNAL = "MON1 CL DDM (\u00b5A)";
-const API_BASE = (() => {
-    const host = window.location.hostname || 'localhost';
-    return `${window.location.protocol}//${host}:8000`;
-})();
+const APP_ORIGIN = window.location.origin || `${window.location.protocol}//${window.location.host}`;
+const API_BASE = `${APP_ORIGIN}/api`;
 
 const buffers = {
     llz: {},
@@ -168,7 +166,7 @@ function initialize() {
     }, RENDER_INTERVAL_MS);
 }
 
-const FAKE_ILS_URL = `http://${window.location.hostname || 'localhost'}:8082`;
+const FAKE_ILS_URL = `${APP_ORIGIN}/fake-ils`;
 
 async function loadMonths() {
     const select = document.getElementById('monthFilterSelect');
@@ -922,8 +920,8 @@ function connectTelemetry() {
     setConnectionState('connecting');
 
     const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
-    const host = window.location.hostname || 'localhost';
-    const wsUrl = `${protocol}://${host}:8080/ws?subsystem=all&token=${encodeURIComponent(AppState.token)}`;
+    const host = window.location.host || 'localhost';
+    const wsUrl = `${protocol}://${host}/ws?subsystem=all&token=${encodeURIComponent(AppState.token)}`;
 
     try {
         AppState.ws = new WebSocket(wsUrl);
